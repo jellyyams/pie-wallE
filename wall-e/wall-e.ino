@@ -18,19 +18,22 @@ int leftArmPos;
 int rightArmPos;
 
 int currBPM = 60;    // initialize music BPM. Update with change in music
-unsigned long stepLength = 100;      // in milliseconds, calculated from bpm
+unsigned long stepLength = 600;      // in milliseconds, calculated from bpm
 unsigned long beatStart = 0;
+unsigned long oldMilli = 0;
 unsigned long currMilli = 0;
 unsigned long nextMilli = stepLength;        
 unsigned long allowedError = 50; // milliseconds we can be off by
+int minDelay = 110;
+unsigned long realStepLength = stepLength;
 
 int topNeckMin = 10;
 int topNeckMax = 110;
 int topNeckPos = topNeckMin;
-int topNeckStep = 5;
+int topNeckStep = 99;
 int nextTopNeck = topNeckPos + topNeckStep;
 unsigned long topNeckLastSwitch = 0;
-float topNeckRealBPM = 0;
+double topNeckRealBPM = 0;
 
 
 
@@ -78,21 +81,28 @@ void tiltHead() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  delay(110);
+  delay(stepLength);
   // check the current time and wait until nextMili to start the next step
   currMilli = millis();
-  Serial.print("millis="); Serial.println(currMilli);
+//  Serial.print("millis="); Serial.println(currMilli);
 
-  while (currMilli <= nextMilli) {
-    // wait for stepLength before starting the next step
-  }
-  if (abs(currMilli-nextMilli) > allowedError) {
-    Serial.print("Error: running "); Serial.print(currMilli-nextMilli); Serial.println(" ms behind");
-  }
+  
+
+//  while (currMilli <= nextMilli) {
+//    // wait for stepLength before starting the next step
+//    delay(minDelay);
+//  }
+//  if (abs(currMilli-nextMilli) > allowedError) {
+//    Serial.print("Error: running "); Serial.print(currMilli-nextMilli); Serial.println(" ms behind");
+//  }
+  realStepLength = currMilli - oldMilli;
+  oldMilli = currMilli;
   nextMilli = currMilli + stepLength;
 
-  Serial.print("millis="); Serial.println(currMilli);
-  Serial.print("topNeckPos="); Serial.println(topNeckPos);
+  Serial.print("currMilli="); Serial.println(currMilli);
+//  Serial.print("stepLength="); Serial.println(stepLength);
+  Serial.print("realStepLength="); Serial.println(realStepLength);
+//  Serial.print("topNeckPos="); Serial.println(topNeckPos);
   Serial.print("topNeckRealBPM="); Serial.println(topNeckRealBPM);
 
   
@@ -104,7 +114,7 @@ void loop() {
   if (nextTopNeck > topNeckMax || nextTopNeck < topNeckMin) {
     topNeckStep = -1*topNeckStep;
     nextTopNeck = nextTopNeck + 2*topNeckStep;
-    topNeckRealBPM = 1/((currMilli-topNeckLastSwitch)/1000/60);
+    topNeckRealBPM = (1/double(currMilli-topNeckLastSwitch))*1000*60/2;
     topNeckLastSwitch = currMilli;
   }
 
