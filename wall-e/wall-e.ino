@@ -31,8 +31,8 @@ unsigned long realStepLength = stepLength;
 int minDelay = 110;
 int assumedServoSpeed = 8; // ms/deg
 
-int leftEyeRangeMax = 85;
-int leftEyeCenter = 90;
+int leftEyeRangeMax = 55;
+int leftEyeCenter = 150;
 
 double leftEyeRange = 50;
 int leftEyeMin = leftEyeCenter-leftEyeRange;
@@ -45,8 +45,8 @@ unsigned long leftEyeLastSwitch = 0;
 double leftEyeRealBPM = 0;
 
 
-int rightEyeRangeMax = 85;
-int rightEyeCenter = 90;
+int rightEyeRangeMax = 55;
+int rightEyeCenter = 30;
 
 double rightEyeRange = 50;
 int rightEyeMin = rightEyeCenter-rightEyeRange;
