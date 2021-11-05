@@ -1,6 +1,9 @@
 
 #include <Servo.h>
 
+int microphonePin = A0; 
+int microphoneValue = 0; 
+
 // servo setup
 Servo leftEyeServo;     // create servo object to control wall-e's left eye and head tilt (in conjunction with rightEyeServo)
 Servo rightEyeServo;    // create servo object to control wall-e's right eye and head tilt (in conjunction with leftEyeServo)
@@ -18,7 +21,7 @@ int botNeckPos;
 int leftArmPos;
 int rightArmPos;
 
-int currBPM = 85;    // 70-190 initialize music BPM. Eventually will update with change in music
+int currBPM = 70;    // 70-190 initialize music BPM. Eventually will update with change in music
 unsigned long stepLength = 600;      // in milliseconds, calculated from bpm
 unsigned long beatStart = 0;
 unsigned long oldMilli = 0;
@@ -63,7 +66,7 @@ double rightEyeRealBPM = 0;
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(230400); // open the serial port at 9600 bps:
+  Serial.begin(9600); // open the serial port at 9600 bps:
   leftEyeServo.attach(3);  // attaches the servo on pin __ to the leftEyeServo object
   rightEyeServo.attach(5);  // attaches the servo on pin __ to the rightEyeServo object
 //  headPanServo.attach(11);  // attaches the servo on pin __ to the headPanServo object
@@ -99,7 +102,7 @@ void calcStepLengthAndRanges() {
   leftEyeMax = leftEyeCenter+leftEyeRange/2;
   leftEyeStep = int(leftEyeRange);
   nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
-  stepLength = leftEyeRange*assumedServoSpeed;
+
   if (int(leftEyeRange) > leftEyeRangeMax) {
     leftEyeRange = leftEyeRangeMax;
   }
@@ -112,7 +115,8 @@ void calcStepLengthAndRanges() {
   if (int(rightEyeRange) > rightEyeRangeMax) {
     rightEyeRange = rightEyeRangeMax;
   }
-  
+
+  stepLength = leftEyeRange*assumedServoSpeed;
   if (stepLength < minDelay) {
     Serial.println("Error: stepLength is too small.");
     stepLength = minDelay;
@@ -143,11 +147,22 @@ void tiltHead() {
   // calculates and sends servo commands for one step of the tiltHead dance move
 }
 
+void updateBPM(int val){
+  Serial.println(val); 
+  if (val > 350){
+    currBPM = 75; 
+  } else if (val > 450) {
+    currBPM = 85; 
+  } else {
+    currBPM = 70; 
+  }
+}
 
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  
+  microphoneValue = analogRead(microphonePin); 
+
+  updateBPM(microphoneValue); 
   
 //   if(!Serial) {  //check if Serial is available... if not,
 //    Serial.end();      // close serial port
@@ -174,20 +189,20 @@ void loop() {
   nextMilli = currMilli + stepLength;
 
 //  Serial.print("currMilli="); Serial.println(currMilli);
-  Serial.print("stepLength="); Serial.println(stepLength);
+//  Serial.print("stepLength="); Serial.println(stepLength);
 //  Serial.print("realStepLength="); Serial.println(realStepLength);
-
-  Serial.print("leftEyePos="); Serial.println(leftEyePos);
-  Serial.print("leftEyeRealBPM="); Serial.println(leftEyeRealBPM);
+//
+//  Serial.print("leftEyePos="); Serial.println(leftEyePos);
+//  Serial.print("leftEyeRealBPM="); Serial.println(leftEyeRealBPM);
 //  Serial.print("leftEyeMin="); Serial.println(leftEyeMin);
 //  Serial.print("leftEyeMax="); Serial.println(leftEyeMax);
 //  Serial.print("leftEyeRange="); Serial.println(leftEyeRange);
 
    Serial.print("rightEyePos="); Serial.println(rightEyePos);
 //  Serial.print("rightEyeRealBPM="); Serial.println(rightEyeRealBPM);
-//  Serial.print("rightEyeMin="); Serial.println(rightEyeMin);
-//  Serial.print("rightEyeMax="); Serial.println(rightEyeMax);
-//  Serial.print("rightEyeRange="); Serial.println(rightEyeRange);
+  Serial.print("rightEyeMin="); Serial.println(rightEyeMin);
+  Serial.print("rightEyeMax="); Serial.println(rightEyeMax);
+  Serial.print("rightEyeRange="); Serial.println(rightEyeRange);
   
 
   
