@@ -10,6 +10,7 @@ Servo botNeckServo;     // create servo object to control wall-e's head bobbing 
 Servo leftArmServo;     // create servo object to control wall-e's left arm rotation
 Servo rightArmServo;    // create servo object to control wall-e's right arm rotation
 
+bool waitToStart = true;
 
 int headPanPos;
 int topNeckPos;
@@ -17,7 +18,7 @@ int botNeckPos;
 int leftArmPos;
 int rightArmPos;
 
-int currBPM = 80;    // 70-190 initialize music BPM. Eventually will update with change in music
+int currBPM = 85;    // 70-190 initialize music BPM. Eventually will update with change in music
 unsigned long stepLength = 600;      // in milliseconds, calculated from bpm
 unsigned long beatStart = 0;
 unsigned long oldMilli = 0;
@@ -39,7 +40,7 @@ int leftEyeMax = leftEyeCenter-leftEyeRange;
 int leftEyePos = leftEyeCenter;
 int leftEyeStep = leftEyeRange;
 int leftEyeDir = 1;
-int nextleftEye = leftEyePos + leftEyeDir*leftEyeStep;
+int nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
 unsigned long leftEyeLastSwitch = 0;
 double leftEyeRealBPM = 0;
 
@@ -52,8 +53,8 @@ int rightEyeMin = rightEyeCenter-rightEyeRange;
 int rightEyeMax = rightEyeCenter-rightEyeRange;
 int rightEyePos = rightEyeCenter;
 int rightEyeStep = rightEyeRange;
-int rightEyeDir = 1;
-int nextrightEye = rightEyePos + rightEyeDir*rightEyeStep;
+int rightEyeDir = -1;
+int nextRightEye = rightEyePos + rightEyeDir*rightEyeStep;
 unsigned long rightEyeLastSwitch = 0;
 double rightEyeRealBPM = 0;
 
@@ -68,7 +69,23 @@ void setup() {
 //  headPanServo.attach(11);  // attaches the servo on pin __ to the headPanServo object
 //  topNeckServo.attach(9);  // attaches the servo on pin __ to the topNeckServo object
 //  botNeckServo.attach(13);  // attaches the servo on pin __ to the botNeckServo object
+
+  leftEyePos = leftEyeCenter;
+  rightEyePos = rightEyeCenter;
+
+  leftEyeServo.write(leftEyePos);
+  rightEyeServo.write(rightEyePos);
+  
+
   calcStepLengthAndRanges();
+
+
+  if (waitToStart) {
+    while (Serial.available() == 0) {
+      // Wait for User to Input Data
+    }
+    serial_flush();
+  }
 
 }
 void serial_flush(void) {
@@ -81,6 +98,7 @@ void calcStepLengthAndRanges() {
   leftEyeMin = leftEyeCenter-leftEyeRange/2;
   leftEyeMax = leftEyeCenter+leftEyeRange/2;
   leftEyeStep = int(leftEyeRange);
+  nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
   stepLength = leftEyeRange*assumedServoSpeed;
   if (int(leftEyeRange) > leftEyeRangeMax) {
     leftEyeRange = leftEyeRangeMax;
@@ -90,6 +108,7 @@ void calcStepLengthAndRanges() {
   rightEyeMin = rightEyeCenter-rightEyeRange/2;
   rightEyeMax = rightEyeCenter+rightEyeRange/2;
   rightEyeStep = int(rightEyeRange);
+  nextRightEye = rightEyePos + rightEyeDir*rightEyeStep;
   if (int(rightEyeRange) > rightEyeRangeMax) {
     rightEyeRange = rightEyeRangeMax;
   }
@@ -128,7 +147,7 @@ void tiltHead() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  delay(stepLength);
+  
   
 //   if(!Serial) {  //check if Serial is available... if not,
 //    Serial.end();      // close serial port
@@ -159,7 +178,7 @@ void loop() {
 //  Serial.print("realStepLength="); Serial.println(realStepLength);
 
   Serial.print("leftEyePos="); Serial.println(leftEyePos);
-//  Serial.print("leftEyeRealBPM="); Serial.println(leftEyeRealBPM);
+  Serial.print("leftEyeRealBPM="); Serial.println(leftEyeRealBPM);
 //  Serial.print("leftEyeMin="); Serial.println(leftEyeMin);
 //  Serial.print("leftEyeMax="); Serial.println(leftEyeMax);
 //  Serial.print("leftEyeRange="); Serial.println(leftEyeRange);
@@ -171,38 +190,41 @@ void loop() {
 //  Serial.print("rightEyeRange="); Serial.println(rightEyeRange);
   
 
-  leftEyeServo.write(nextleftEye);
-  leftEyePos = nextleftEye;
-  nextleftEye = leftEyePos + leftEyeDir*leftEyeStep;
+  
 
-  if (nextleftEye > leftEyeMax ) {
+  if (nextLeftEye > leftEyeMax ) {
     leftEyeDir = -1;
-    nextleftEye = leftEyeMax-leftEyeStep;
+    nextLeftEye = leftEyeMax-leftEyeStep;
     leftEyeRealBPM = (1/double(currMilli-leftEyeLastSwitch))*1000*60/2;
     leftEyeLastSwitch = currMilli;
-  } else if (nextleftEye < leftEyeMin) {
+  } else if (nextLeftEye < leftEyeMin) {
     leftEyeDir = 1;
-    nextleftEye = leftEyeMin+leftEyeStep;
+    nextLeftEye = leftEyeMin+leftEyeStep;
     leftEyeRealBPM = (1/double(currMilli-leftEyeLastSwitch))*1000*60/2;
     leftEyeLastSwitch = currMilli;
   }
 
-  rightEyeServo.write(nextrightEye);
-  rightEyePos = nextrightEye;
-  nextrightEye = rightEyePos + rightEyeDir*rightEyeStep;
+  leftEyeServo.write(nextLeftEye);
+  leftEyePos = nextLeftEye;
+  nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
 
-  if (nextrightEye > rightEyeMax ) {
+
+  if (nextRightEye > rightEyeMax ) {
     rightEyeDir = -1;
-    nextrightEye = rightEyeMax-rightEyeStep;
+    nextRightEye = rightEyeMax-rightEyeStep;
     rightEyeRealBPM = (1/double(currMilli-rightEyeLastSwitch))*1000*60/2;
     rightEyeLastSwitch = currMilli;
-  } else if (nextrightEye < rightEyeMin) {
+  } else if (nextRightEye < rightEyeMin) {
     rightEyeDir = 1;
-    nextrightEye = rightEyeMin+rightEyeStep;
+    nextRightEye = rightEyeMin+rightEyeStep;
     rightEyeRealBPM = (1/double(currMilli-rightEyeLastSwitch))*1000*60/2;
     rightEyeLastSwitch = currMilli;
   }
 
+  rightEyeServo.write(nextRightEye);
+  rightEyePos = nextRightEye;
+  nextRightEye = rightEyePos + rightEyeDir*rightEyeStep;
+
   
   
   
@@ -210,5 +232,5 @@ void loop() {
   
   
 
-
+  delay(stepLength);
 }
