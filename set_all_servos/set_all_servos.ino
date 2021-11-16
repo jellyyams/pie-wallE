@@ -9,7 +9,8 @@ Servo botNeckServo;     // create servo object to control wall-e's head bobbing 
 Servo leftArmServo;     // create servo object to control wall-e's left arm rotation
 Servo rightArmServo;    // create servo object to control wall-e's right arm rotation
 
-int servoPos = 90;
+//30-160 deg, center 95, range 65 each direction, 130 total
+int servoPos = 95;
 
 void setup() {
   // put your setup code here, to run once:

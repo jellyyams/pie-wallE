@@ -1,10 +1,24 @@
 
+
+#include <Wire.h>
 #include <Servo.h>
+#include <Adafruit_PWMServoDriver.h>
 
 int microphonePin = A0; 
 int microphoneValue = 0; 
 
-// servo setup
+// Servo driver setup
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+uint8_t leftEyePort = 0;
+uint8_t rightEyePort = 1;
+uint8_t headPanPort = 2;
+uint8_t topNeckPort = 3;
+uint8_t botNeckPort = 4;
+uint8_t leftArmPort = 5;
+uint8_t rightArmPort = 6;
+
+// Direct control servo setup
 Servo leftEyeServo;     // create servo object to control wall-e's left eye and head tilt (in conjunction with rightEyeServo)
 Servo rightEyeServo;    // create servo object to control wall-e's right eye and head tilt (in conjunction with leftEyeServo)
 Servo headPanServo;     // create servo object to control wall-e's head shaking
@@ -12,7 +26,6 @@ Servo topNeckServo;     // create servo object to control wall-e's head nodding
 Servo botNeckServo;     // create servo object to control wall-e's head bobbing (in conjunction with topNeckServo)
 Servo leftArmServo;     // create servo object to control wall-e's left arm rotation
 Servo rightArmServo;    // create servo object to control wall-e's right arm rotation
-
 
 // Set program parameters
 
@@ -47,7 +60,7 @@ unsigned long realStepLength = stepLength;
 
 double leftEyeRange = 50;
 int leftEyeMin = leftEyeCenter-leftEyeRange;
-int leftEyeMax = leftEyeCenter-leftEyeRange;
+int leftEyeMax = leftEyeCenter+leftEyeRange;
 int leftEyePos = leftEyeCenter;
 int leftEyeStep = leftEyeRange;
 int leftEyeDir = 1;
@@ -57,7 +70,7 @@ double leftEyeRealBPM = 0;
 
 double rightEyeRange = 50;
 int rightEyeMin = rightEyeCenter-rightEyeRange;
-int rightEyeMax = rightEyeCenter-rightEyeRange;
+int rightEyeMax = rightEyeCenter+rightEyeRange;
 int rightEyePos = rightEyeCenter;
 int rightEyeStep = rightEyeRange;
 int rightEyeDir = -1;
@@ -70,6 +83,11 @@ double rightEyeRealBPM = 0;
 
 void setup() {
   // put your setup code here, to run once:
+
+  // Set up servo driver
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
 
   // Set up serial and attach servos
   Serial.begin(9600); // open the serial port at 9600 bps:
@@ -86,7 +104,7 @@ void setup() {
   rightEyeServo.write(rightEyePos);
   
   // Calculate the starting ranges and step length based on BPM
-  calcStepLengthAndRanges();
+  calcFullSpeedVals();
 
   // Wait to begin main loop until user inputs something if waitToStart = true (in order to manually start on beat)
   if (waitToStart) {
@@ -103,7 +121,7 @@ void serial_flush(void) {
   while (Serial.available()) Serial.read();
 }
 
-void calcStepLengthAndRanges() {
+void calcFullSpeedVals() {
 
   // Calculate and set leftEye movement parameters
   leftEyeRange =  60.0*1000.0/(double(assumedServoSpeed)*double(currBPM))/2 ;
@@ -134,6 +152,14 @@ void calcStepLengthAndRanges() {
   
   
   
+}
+
+void setServo(uint8_t servoPort, double deg) {
+  // calculate pulselen from deg
+  pulselen = map(deg, 0, 180, SERVOMIN, SERVOMAX);
+
+  // set PWM to pulselen
+  pwm.setPWM(servoPort, 0, pulselen);
 }
 
 void nodHead() {
@@ -172,7 +198,6 @@ void updateBPM(int val){
 void loop() {
   microphoneValue = analogRead(microphonePin); 
   updateBPM(microphoneValue); 
-  calcStepLengthAndRanges();
 
   // check the current time
   currMilli = millis();
