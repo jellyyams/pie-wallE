@@ -23,6 +23,7 @@ double s1MaxRange = 58;
 double s1MaxVel = 60;
 int s1MaxTimeMult = 4;
 double s1MaxError = 2;
+double minStep = 0.1;
 
 double s1Step = 1;
 
@@ -153,7 +154,7 @@ void matchBPM(double bpm, double maxTimeMult, double maxRange, double maxVel, do
     Serial.print("newBPM="); Serial.println(newBPM);
     newError = newBPM-bpm;
     Serial.print("newError="); Serial.println(newError);
-    if (newError > -0.01 && abs(newError) < abs(closestError)) {
+    if (newError > -0.01 && abs(newError) < abs(closestError) && newStep >= minStep) {
       closestTimeMult = newTimeMult;
       closestStep = newStep;
       closestRange = newRange;

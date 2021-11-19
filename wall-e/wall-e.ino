@@ -7,6 +7,25 @@
 int microphonePin = A0; 
 int microphoneValue = 0; 
 
+double allBPM = 70;
+
+double goalBpm[7] =     {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
+double centerPos[7] =   {95, 95}; // (deg)
+double maxVel[7] =      {60, 60}; // (deg/s)
+double maxRange[7] =    {60, 60}; // (deg)
+
+int timeMult[7]; 
+double stepDist[7];
+double range[7];
+double closestBPM[7];
+double minPos[7];
+double maxPos[7];
+double nextPos[7];
+unsigned long lastSwitch[7];
+double realBPM[7];
+double realVel[7];
+
+
 // Servo driver setup
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
