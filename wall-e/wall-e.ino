@@ -2,15 +2,34 @@
 #include <Servo.h>
 #include <Adafruit_PWMServoDriver.h>
 
-int microphonePin = A0; 
-int microphoneValue = 0; 
+// Servo driver setup
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+#define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
+#define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
 
+
+
+// Trial Parameters
 double allBPM = 70;
+unsigned long baseTime = 20;
+int servosRunning = 1;
+bool waitToStart = false; // wait for something to send in the Serial input before starting (in order to manually start on the beat)
 
-double goalBpm[7] =     {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
+
+// Other Tuning and Setup Parameters
+double goalBPM[7] =     {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
 double centerPos[7] =   {95, 95}; // (deg)
 double maxVel[7] =      {60, 60}; // (deg/s)
 double maxRange[7] =    {60, 60}; // (deg)
+double maxError = 1.0;
+double minStep = 0.1;
+double maxTimeMult = 5;
+//int microphonePin = A0; 
+//int microphoneValue = 0; 
+
+
+// Initalization of other global variables
 
 int timeMult[7]; 
 double stepDist[7];
@@ -20,68 +39,17 @@ double minPos[7];
 double maxPos[7];
 double curPos[7];
 double nextPos[7];
+int dir[7] = {1,1,1,1,1,1,1};
 unsigned long lastSwitch[7];
-double realBPM[7];
+double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
 double realVel[7];
+int currMult[7] = {1,1,1,1,1,1,1};
 
-double maxError = 1.0;
-double minStep = 0.1;
-
-
-// Servo driver setup
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-
-bool waitToStart = true; // wait for something to send in the Serial input before starting (in order to manually start on the beat)
-
-int minDelay = 110;
-int assumedServoSpeed = 8; // ms/deg
-
-int leftEyeRangeMax = 55;
-int leftEyeCenter = 150;
-
-int rightEyeRangeMax = 55;
-int rightEyeCenter = 30;
-
-
-// Initalize global variables
-
-int headPanPos;
-int topNeckPos;
-int botNeckPos;
-int leftArmPos;
-int rightArmPos;
-
-unsigned long stepLength = 600;      // in milliseconds, calculated from bpm
-unsigned long beatStart = 0;
 unsigned long oldMilli = 0;
 unsigned long currMilli = 0;
-unsigned long nextMilli = stepLength;        
-unsigned long allowedError = 50; // milliseconds we can be off by
-unsigned long realStepLength = stepLength;
-
-double leftEyeRange = 50;
-int leftEyeMin = leftEyeCenter-leftEyeRange;
-int leftEyeMax = leftEyeCenter+leftEyeRange;
-int leftEyePos = leftEyeCenter;
-int leftEyeStep = leftEyeRange;
-int leftEyeDir = 1;
-int nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
-unsigned long leftEyeLastSwitch = 0;
-double leftEyeRealBPM = 0;
-
-double rightEyeRange = 50;
-int rightEyeMin = rightEyeCenter-rightEyeRange;
-int rightEyeMax = rightEyeCenter+rightEyeRange;
-int rightEyePos = rightEyeCenter;
-int rightEyeStep = rightEyeRange;
-int rightEyeDir = -1;
-int nextRightEye = rightEyePos + rightEyeDir*rightEyeStep;
-unsigned long rightEyeLastSwitch = 0;
-double rightEyeRealBPM = 0;
-
-
-
+unsigned long nextMilli = baseTime;        
+unsigned long realStepLength = baseTime;
+unsigned long adjustedDelay = baseTime;
 
 void setup() {
   // put your setup code here, to run once:
@@ -91,23 +59,16 @@ void setup() {
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
 
-  // Set up serial and attach servos
-  Serial.begin(9600); // open the serial port at 9600 bps:
-  leftEyeServo.attach(3);  // attaches the servo on pin __ to the leftEyeServo object
-  rightEyeServo.attach(5);  // attaches the servo on pin __ to the rightEyeServo object
-//  headPanServo.attach(11);  // attaches the servo on pin __ to the headPanServo object
-//  topNeckServo.attach(9);  // attaches the servo on pin __ to the topNeckServo object
-//  botNeckServo.attach(13);  // attaches the servo on pin __ to the botNeckServo object
+  // Set up serial
+  Serial.begin(74880); // open the serial port at 9600 bps:
 
-  // Move servos to starting positions
-  leftEyePos = leftEyeCenter;
-  rightEyePos = rightEyeCenter;
-  leftEyeServo.write(leftEyePos);
-  rightEyeServo.write(rightEyePos);
+  // Move servos to starting positions and calculate the starting ranges and step dist based on BPM
+  for (uint8_t i = 0; i < servosRunning; i++) {
+    matchBPM(i,goalBPM[i]);
+    nextPos[i] = minPos[i];
+    setServo(i);
+  }
   
-  // Calculate the starting ranges and step length based on BPM
-  calcFullSpeedVals();
-
   // Wait to begin main loop until user inputs something if waitToStart = true (in order to manually start on beat)
   if (waitToStart) {
     while (Serial.available() == 0) {
@@ -123,48 +84,16 @@ void serial_flush(void) {
   while (Serial.available()) Serial.read();
 }
 
-void calcFullSpeedVals() {
-
-  // Calculate and set leftEye movement parameters
-  leftEyeRange =  60.0*1000.0/(double(assumedServoSpeed)*double(currBPM))/2 ;
-  leftEyeMin = leftEyeCenter-leftEyeRange/2;
-  leftEyeMax = leftEyeCenter+leftEyeRange/2;
-  leftEyeStep = int(leftEyeRange);
-  nextLeftEye = leftEyePos + leftEyeDir*leftEyeStep;
-  if (int(leftEyeRange) > leftEyeRangeMax) {
-    leftEyeRange = leftEyeRangeMax;
-  }
-
-  // Calculate and set rightEye movement parameters
-  rightEyeRange =  60.0*1000.0/(double(assumedServoSpeed)*double(currBPM))/2 ;
-  rightEyeMin = rightEyeCenter-rightEyeRange/2;
-  rightEyeMax = rightEyeCenter+rightEyeRange/2;
-  rightEyeStep = int(rightEyeRange);
-  nextRightEye = rightEyePos + rightEyeDir*rightEyeStep;
-  if (int(rightEyeRange) > rightEyeRangeMax) {
-    rightEyeRange = rightEyeRangeMax;
-  }
-
-  // Set loop delay, and check that it's not so small as to overload the arduino
-  stepLength = leftEyeRange*assumedServoSpeed;  // eventually need to set up for sub-range movement steps
-  if (stepLength < minDelay) {
-    Serial.println("Error: stepLength is too small.");
-    stepLength = minDelay;
-  }
-  
-}
-
 void matchBPM(uint8_t s, double BPM) {
   int newTimeMult;
   double newStep;
   double newRange;
   double newBPM;
   double newError;
-  double closestBPM;
   double closestError=100;
   
   newTimeMult = 1;
-  while (newTimeMult <= maxTimeMult[s]) {
+  while (newTimeMult <= maxTimeMult) {
     Serial.println(newTimeMult);
     if (abs(closestError) < maxError) {
       return;
@@ -189,9 +118,9 @@ void matchBPM(uint8_t s, double BPM) {
       timeMult[s] = newTimeMult;
       stepDist[s] = newStep;
       range[s] = newRange;
-      minPos[s] = center[s]-range[s]/2;
-      maxPos[s] = center[s]+range[s]/2;
-      closestBPM[s] = newBPM;
+      minPos[s] = centerPos[s]-range[s]/2;
+      maxPos[s] = centerPos[s]+range[s]/2;
+      closestBPM[s] = double(newBPM);
     }
     newTimeMult++;
   }
@@ -213,15 +142,25 @@ double calcTimeMult(double bpm, double newStep, double newRange) {
 }
 
 void adjustBPM(uint8_t s, double reduction){
-  if (realBPM[s] < bpm[s]) {
-    matchBPM(s, bpm[s]+(bpm[s]-realBPM[s]));
+  if (realBPM[s] < goalBPM[s]) {
+    matchBPM(s, goalBPM[s]+(goalBPM[s]-realBPM[s])/reduction);
   }
 }
-void calcNextPos(uint8_t s) {
+void updatePos(uint8_t s, bool adj, bool disp) {
+  if (currMult[s] == timeMult[s]) {
+    currMult[s] = 1;
+    calcNextPos(s,adj);
+    if (disp) { printVals(s); }
+    setServo(s);
+  } else {
+    currMult[s] = currMult[s] + 1;
+  }
+}
+void calcNextPos(uint8_t s, bool adj) {  
   // calc next position
   nextPos[s] = curPos[s] + dir[s]*stepDist[s];
   // switch directions and record real measurements at each end of range
-  if (nextPos[s] > maxPos[s] ) {
+  if (nextPos[s] > maxPos[s]) {
     dir[s] = -1;
     nextPos[s] = maxPos[s]- stepDist[s];
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
@@ -229,11 +168,11 @@ void calcNextPos(uint8_t s) {
     lastSwitch[s] = currMilli;
   } else if (nextPos[s] < minPos[s]) {
     dir[s] = 1;
-    nextPos[s] = maxPos[s]- stepDist[s];
+    nextPos[s] = minPos[s]+ stepDist[s];
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
-    adjustBPM(s,1);
+    if (adj) {adjustBPM(s,2);}
   }
 }
 
@@ -248,8 +187,9 @@ void printVals(uint8_t s) {
 }
 
 void setServo(uint8_t s) {
+  // Set servo s to nextPos, update curPos to nextPos
   // calculate pulselen from deg (of nextPos)
-  pulselen = map(nextPos[s], 0, 180, SERVOMIN, SERVOMAX);
+  int pulselen = map(nextPos[s], 0, 180, SERVOMIN, SERVOMAX);
   // set PWM to pulselen
   pwm.setPWM(s, 0, pulselen);
   // update curPos
@@ -277,16 +217,16 @@ void tiltHead() {
   // sends servo commands for one step of the tiltHead dance move
 }
 
-void updateBPM(int val){
-  Serial.println(val); 
-  if (val > 350){
-    currBPM = 75; 
-  } else if (val > 450) {
-    currBPM = 85; 
-  } else {
-    currBPM = 70; 
-  }
-}
+//void updateBPM(int val){
+//  Serial.println(val); 
+//  if (val > 350){
+//    currBPM = 75; 
+//  } else if (val > 450) {
+//    currBPM = 85; 
+//  } else {
+//    currBPM = 70; 
+//  }
+//}
 
 void loop() {
   
@@ -300,16 +240,14 @@ void loop() {
   // calculate how far off we are from the nextMilli we were aiming for
   realStepLength = currMilli - oldMilli;
   oldMilli = currMilli;
-  nextMilli = currMilli + stepLength;
+  nextMilli = currMilli + baseTime;
 
   // Print current time and movement parameters for debugging
 //  Serial.print("currMilli="); Serial.println(currMilli);
 //  Serial.print("realStepLength="); Serial.println(realStepLength);
 
-  for (uint8_t i; i <=1; i++) {
-    calcNextPos(0);
-    printVals(0);
-    setServo(0); // set servo to nextPos, update curPos to nextPos
+  for (uint8_t i = 0; i < servosRunning; i++) {
+    updatePos(i, true, true); // which servo to update, whether to adjust bpm, whether to print values
   }
   
  adjustedDelay = int(nextMilli-millis());
