@@ -41,18 +41,18 @@ int motor1pin2 = 4;
 int motor2pin1 = 3;
 int motor2pin2 = 2;
 
-void moveServo(){
-  for (servo_pos1 = 0; servo_pos1 <= 60; servo_pos1 += 1) { // goes from 0 degrees to 180 degrees
-    myservo1.write(servo_pos1);      
-    delay(30); // tell servo to go to position in variable 'pos'
-  }
-  
-  for (servo_pos1 = 60; servo_pos1 >= 0; servo_pos1 -= 1) { // goes from 0 degrees to 180 degrees
-    myservo1.write(servo_pos1);      
-    delay(30); // tell servo to go to position in variable 'pos'
-  }
-      
-}
+//void moveServo(){
+//  for (servo_pos1 = 0; servo_pos1 <= 60; servo_pos1 += 1) { // goes from 0 degrees to 180 degrees
+//    myservo1.write(servo_pos1);      
+//    delay(30); // tell servo to go to position in variable 'pos'
+//  }
+//  
+//  for (servo_pos1 = 60; servo_pos1 >= 0; servo_pos1 -= 1) { // goes from 0 degrees to 180 degrees
+//    myservo1.write(servo_pos1);      
+//    delay(30); // tell servo to go to position in variable 'pos'
+//  }
+//      
+//}
 
 void testDCMotor(){
   // put your main code here, to run repeatedly:   
