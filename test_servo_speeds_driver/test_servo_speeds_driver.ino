@@ -6,18 +6,18 @@
 // servo driver board setup
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-#define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
+#define SERVOMIN  130 // This is the 'minimum' pulse length count (out of 4096)
+#define SERVOMAX  430 // This is the 'maximum' pulse length count (out of 4096)
 
 
 // script/testing parameters
 
 double s1Step = 1;
-int timestep = 15;
+int timestep = 700;
 
-int s1Center = 90;
-double s1Range = 40;
-uint8_t s1Port = 0;
+int s1Center = 107;
+double s1Range = 3;
+uint8_t s1Port = 2;
 
 bool waitToStart = false;
 
@@ -42,7 +42,7 @@ unsigned long realStepLength;
 
 void setup() {
   
-  Serial.begin(57600); // open the serial port at 9600 bps:
+  Serial.begin(74880); // open the serial port at 9600 bps:
   
   // Set up servo driver
   pwm.begin();
@@ -60,7 +60,7 @@ void setup() {
 
 void setServo(uint8_t servoPort, double deg) {
   // calculate pulselen from deg
-  uint16_t pulselen = map(deg, 0, 180, SERVOMIN, SERVOMAX);
+  uint16_t pulselen = map(deg, 30, 160, SERVOMIN, SERVOMAX);
   Serial.println(pulselen);
 
   // set PWM to pulselen
@@ -104,7 +104,7 @@ void loop() {
   nextMilli = currMilli + timestep;
 
   // write new servo position
-  setServo(0,s1Pos);
+  setServo(s1Port,s1Pos);
 
   // find next position
   s1Pos = s1Next;
@@ -127,14 +127,14 @@ void loop() {
 
   // print values for debugging - uncommenting more than 4 lines can cause serial buffer overflow errors
 //  Serial.print("currMilli="); Serial.println(currMilli);
-  Serial.print("realStepLength="); Serial.println(realStepLength);
-//  Serial.print("s1Pos="); Serial.println(s1Pos);
-  Serial.print("s1Step="); Serial.println(s1Step);
-  Serial.print("s1Range="); Serial.println(s1Range);
+//  Serial.print("realStepLength="); Serial.println(realStepLength);
+  Serial.print("s1Pos="); Serial.println(s1Pos);
+//  Serial.print("s1Step="); Serial.println(s1Step);
+//  Serial.print("s1Range="); Serial.println(s1Range);
 //  Serial.print("s1Min="); Serial.println(s1Min);
 //  Serial.print("s1Max="); Serial.println(s1Max);
 //  Serial.print("s1RealBPM="); Serial.println(s1RealBPM);
-  Serial.print("s1RealSpeed="); Serial.println(s1RealSpeed);
+//  Serial.print("s1RealSpeed="); Serial.println(s1RealSpeed);
 
   delay(timestep);
 
