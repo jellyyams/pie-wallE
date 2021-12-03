@@ -10,7 +10,7 @@ Servo leftArmServo;     // create servo object to control wall-e's left arm rota
 Servo rightArmServo;    // create servo object to control wall-e's right arm rotation
 
 //30-160 deg, center 95, range 65 each direction, 130 total
-int servoPos = 95;
+int servoPos = 130;
 
 void setup() {
   // put your setup code here, to run once:
