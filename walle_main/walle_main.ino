@@ -1,3 +1,4 @@
+
 /*
  * Note to self, Nov 30:
  * mpv is to play metronome for wallE for 10 seconds. 
@@ -8,8 +9,16 @@
 
 #include <arduinoFFT.h>
 #include "filters.h"
+#include "SoundData.h";
+#include "XT_DAC_Audio.h";
+#include <Adafruit_PWMServoDriver.h>
 
 
+// Servo driver setup
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+int SERVO_FREQ = 50; // Analog servos run at ~50 Hz updates
+int SERVOMIN  = 150; // This is the 'minimum' pulse length count (out of 4096)
+int SERVOMAX  = 600; // This is the 'maximum' pulse length count (out of 4096)
 
 #define SAMPLES 64
 int SAMPLING_FREQUENCY = 1000; //Hz, must be less than 10000 due to ADC
@@ -46,12 +55,18 @@ const uint8_t LEDPin = 8;
 const uint8_t microphonePin = 36;
 
 //DC motor variables
-int motor1pin1 = 5;
-int motor1pin2 = 4;
-int motor2pin1 = 3;
-int motor2pin2 = 2;
+int motor1pin1 = 16;
+int motor1pin2 = 17;
+int motor2pin1 = 5;
+int motor2pin2 = 18;
 
 int previousMillis = 0; 
+
+
+XT_DAC_Audio_Class DacAudio(25,0);    // Create the main player class object. 
+                                      // Use GPIO 25, one of the 2 DAC pins and timer 0
+                                      
+//XT_Wav_Class StarWars(StarWarsWav); 
 
 void testDCMotor(){
   // put your main code here, to run repeatedly:   
@@ -82,9 +97,26 @@ void testMicrophone(){
   }  
 }
 
+void testServoDriver(){
+  for (int pulseLength = SERVOMIN ; pulseLength <= SERVOMAX ; pulseLength++)    //Move each servo from servoMin to servoMax
+  {
+    pwm.setPWM(0, 0, pulseLength);  //Set the current PWM pulse length on board 1, servo i
+    delay(10);
+    Serial.println(pulseLength); 
+  }
+  delay(500);
+  for (int pulseLength = SERVOMAX ; pulseLength >= SERVOMIN ; pulseLength--)    ////Move each servo from servoMax to servoMin
+  {
+    pwm.setPWM(0, 0, pulseLength);           //Set the current PWM pulse length on board 1, servo i
+    delay(10);
+    Serial.println(pulseLength); 
+  }
+  delay(500);
+  
+}
+
 
 double runFFT(){
-
 
   double average = 0;
   for (int i = 0; i < SAMPLES; i++) {
@@ -121,6 +153,9 @@ double runFFT(){
 }
 
 void setup(){
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
   const float sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 
   pinMode(motor1pin1, OUTPUT);
@@ -129,21 +164,16 @@ void setup(){
   pinMode(motor2pin2, OUTPUT);
   pinMode(LEDPin, OUTPUT); 
   pinMode(microphonePin, INPUT); 
+//  StarWars.RepeatForever=true;        // Keep on playing sample forever!!!
+//  DacAudio.Play(&StarWars); 
   
   Serial.begin(115200); 
 
 }
 
 void loop(){ 
-//  running_sum += runFFT(); 
-//  
-//  if (loop_num > 9){
-//    Serial.println(running_sum / loop_num);
-//    running_sum = 0;
-//    loop_num = 0;
-//  }
-//  loop_num += 1; 
-
+ 
+  //testDCMotor(); 
 
   Serial.println(runFFT());
   //Serial.println(analogRead(microphonePin));
