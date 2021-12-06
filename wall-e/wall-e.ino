@@ -13,7 +13,7 @@ double allBPM = 60; // bpm to set all of the servos to (so that it can be adjust
 unsigned long baseTime = 20; // the ideal length of each loop (ms)
 bool waitToStart = false; // whether to wait for something to send in the Serial input before starting (in order to manually start on the beat)
 bool dispCalc = false; // whether to display movement parameter calculations in the matchBPM() function
-bool adjBPM = true; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
+bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
 int servosRunning = 5; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 
 // Other Tuning and Setup Parameters
@@ -30,7 +30,7 @@ uint8_t armRPin =  6;
 // indexed by the pin they are pluged into (listed above)
 double goalBPM[7] =     {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
 double centerPos[7] =   {60, 140, 107, 95, 95}; // (deg)
-double maxRange[7] =    {30, 30, 106, 30, 30}; // maximum total angular travel defined by mechanical limits (deg)
+double maxRange[7] =    {30, 30, 106, 130, 30}; // maximum total angular travel defined by mechanical limits (deg)
 double maxVel[7] =      {60, 60, 60, 60, 60}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
@@ -81,7 +81,7 @@ void setup() {
     curPos[i] = minPos[i];
     nextPos[i] = minPos[i];
     
-    matchBPM(i,goalBPM[i]); // comment out to allow non bpm-matching trials
+//    matchBPM(i,goalBPM[i]); // comment out to allow non bpm-matching trials
     
     setServo(i); // set servo to one end
   }
@@ -99,6 +99,22 @@ void setup() {
 void serial_flush(void) {
   // manually flushes the serial input so that user input values aren't misread
   while (Serial.available()) Serial.read();
+}
+
+double stepFromTimeMult(double newTimeMult, double vel) {
+  return vel*double(newTimeMult*baseTime)/1000.0;
+}
+double calcStep(double bpm,int newTimeMult, double newRange) {
+  return newRange*bpm*double(newTimeMult*baseTime)/(60.0*1000.0);
+}
+double calcRange(double bpm,int newTimeMult, double newStep) {
+  return 60.0*1000.0*newStep/(bpm*double(newTimeMult*baseTime));
+}
+double calcBPM(int newTimeMult, double newStep, double newRange) {
+  return newStep*1000.0*60.0/(newRange*double(newTimeMult*baseTime));
+}
+double calcTimeMult(double bpm, double newStep, double newRange) {
+  return 60.0*1000.0/(newRange*bpm*double(baseTime));
 }
 
 void matchBPM(uint8_t s, double BPM) {
@@ -145,21 +161,6 @@ void matchBPM(uint8_t s, double BPM) {
     newTimeMult++;
   }
 }
-double stepFromTimeMult(double newTimeMult, double vel) {
-  return vel*double(newTimeMult*baseTime)/1000.0;
-}
-double calcStep(double bpm,int newTimeMult, double newRange) {
-  return newRange*bpm*double(newTimeMult*baseTime)/(60.0*1000.0);
-}
-double calcRange(double bpm,int newTimeMult, double newStep) {
-  return 60.0*1000.0*newStep/(bpm*double(newTimeMult*baseTime));
-}
-double calcBPM(int newTimeMult, double newStep, double newRange) {
-  return newStep*1000.0*60.0/(newRange*double(newTimeMult*baseTime));
-}
-double calcTimeMult(double bpm, double newStep, double newRange) {
-  return 60.0*1000.0/(newRange*bpm*double(baseTime));
-}
 
 void adjustBPM(uint8_t s, double reduction){
   // runs the matchBPM function again with a slightly higher bpm if realBPM is too slow
@@ -167,6 +168,7 @@ void adjustBPM(uint8_t s, double reduction){
     matchBPM(s, goalBPM[s]+(goalBPM[s]-realBPM[s])/reduction);
   }
 }
+
 void updatePos(uint8_t s, bool adj, bool disp) {
   // run this each loop for each servo to move them at the right speed and range
   if (currMult[s] == timeMult[s]) { // check if it's been the right number of baseTime steps to move the servo again
@@ -180,6 +182,7 @@ void updatePos(uint8_t s, bool adj, bool disp) {
     currMult[s] = currMult[s] + 1;
   }
 }
+
 void calcNextPos(uint8_t s, bool adj) {  
   // calc next position for servo at port s
   nextPos[s] = curPos[s] + dir[s]*stepDist[s];
@@ -221,13 +224,31 @@ void setServo(uint8_t s) {
   curPos[s] = nextPos[s];
 }
 
+void setServoPos(uint8_t s, double pos) {
+  // Set servo s to nextPos, update curPos to nextPos
+  // calculate pulselen from deg (of nextPos)
+  nextPos[s] = pos;
+  int pulselen = map(nextPos[s], 30, 160, SERVOMIN, SERVOMAX);
+  // set PWM to pulselen
+  pwm.setPWM(s, 0, pulselen);
+  // update curPos
+  curPos[s] = nextPos[s];
+}
+
+void runAllServos() {
+  for (uint8_t i = 0; i < servosRunning; i++) { // run the first 5 (or other val for servosRunning) servos and skip the rest
+    updatePos(i, adjBPM, false); // which servo to update, whether to adjust bpm, whether to print values
+  }
+}
 
 void nodHead() {
   // sends servo commands for one step of the nodHead dance move
+  updatePos(neckTPin, adjBPM, false);
 }
 
 void shakeHead() {
   // sends servo commands for one step of the shakeHead dance move
+  updatePos(headPin, adjBPM, false);
 }
 
 void bobHead() {
@@ -236,10 +257,14 @@ void bobHead() {
 
 void swingArms() {
   // sends servo commands for one step of the swingArms dance move
+  updatePos(armRPin, adjBPM, false);
+  updatePos(armLPin, adjBPM, false);
 }
 
-void tiltHead() {
+void moveEyes() {
   // sends servo commands for one step of the tiltHead dance move
+  updatePos(eyeRPin, adjBPM, false);
+  updatePos(eyeLPin, adjBPM, false);
 }
 
 //void updateBPM(int val){
@@ -261,23 +286,20 @@ void loop() {
 
   // check the current time
   currMilli = millis();
-
   // calculate how long the last loop actually took and record milli for next loop
   realStepLength = currMilli - oldMilli;
   oldMilli = currMilli;
-  
-
   // Print current time and real step length for debugging
   // WARNING: printing too many statements per loop can overflow Arduino/COM buffer and cause failure
 //  Serial.print("currMilli="); Serial.println(currMilli);
 //  Serial.print("realStepLength="); Serial.println(realStepLength);
 
-  for (uint8_t i = 0; i < servosRunning; i++) { // run the first 5 (or other val for servosRunning) servos and skip the rest
-    updatePos(i, adjBPM, false); // which servo to update, whether to adjust bpm, whether to print values
-  }
-
-  printVals(2); // print values for only one of the servos
-  printVals(3); // print values for only one of the servos
+  runAllServos();
+//  nodHead();
+//  shakeHead();
+  
+  printVals(headPin); // print values for only one of the servos
+  printVals(neckTPin); // print values for only one of the servos
 
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
   nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
