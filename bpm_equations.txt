@@ -1,0 +1,44 @@
+/*
+range (deg)	(min)		60 (s)	 1000 (ms)	stepDist (deg)
+----------- =	--------   x    ----  x  -------    x   ----------------------
+(beat)		bpm (beat)	(min)	 (s)		timeMult*baseTime (ms)
+*/
+
+
+/*
+bpm (beat)	(beat)		stepDist (deg)			1000 (ms)	60 (s)
+---------- =	-----------  x	----------------------     x	---------   x	------
+(min)		range (deg)	timeMult*baseTime (ms)		(s)		(min)
+*/
+
+
+/*
+stepDist (deg)			range (deg)	bpm (beat)	(min)		(s)
+---------------------- =	-----------  x  ----------  x	------    x	---------
+timeMult*timestep (ms)		(beat)		(min)		60 (s)		1000 (ms)
+*/
+
+/*
+			range (deg)	bpm (beat)	(min)		(s)
+stepDist (deg) =	-----------  x  ----------  x	------    x	---------  x  timeMult*timestep (ms)
+			(beat)		(min)		60 (s)		1000 (ms)
+*/
+
+
+/*
+timeMult*baseTime (ms)		(beat)		(min)		60 (s)		1000 (ms)
+---------------------- =	-----------  x	----------  x	------    x	---------
+step (deg)			range (deg)	bpm (beat)	(min)		(s)
+*/
+
+
+/*
+vel (deg)	stepDist (deg)			1000 (ms)
+--------- = 	----------------------  x	---------
+(s)		timeMult*baseTime (ms)		(s)
+
+--> Solve for stepDist
+			vel (deg)				   (s)
+stepDist (deg) =	---------   x	timeMult*baseTime (ms)  x  -------
+			(s)					   1000 (ms)
+*/
