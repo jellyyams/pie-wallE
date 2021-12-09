@@ -40,7 +40,7 @@ double maxTimeMult = 5; // maximum baseTime multiplier to check
 //int microphonePin = A0; 
 //int microphoneValue = 0; 
 
-//double centerPos[7] =   {60, 60, 60, 60, 60}; // (deg)
+//double centerPos[7] =   {95, 95, 60, 60, 60}; // (deg)
 //double maxRange[7] =    {30, 30, 30, 30, 30}; // maximum total angular travel defined by mechanical limits (deg)
 
 
@@ -337,14 +337,17 @@ void loop() {
   // Print current time and real step length for debugging
   // WARNING: printing too many statements per loop can overflow Arduino/COM buffer and cause failure
 //  Serial.print("currMilli="); Serial.println(currMilli);
-  Serial.print("realStepLength="); Serial.println(realStepLength);
+//  Serial.print("realStepLength="); Serial.println(realStepLength);
 
-  runAllServos();
+//  runAllServos();
 //  nodHead();
 //  shakeHead();
+
+  setServoPos(0,95);
+  setServoPos(1,95);
   
-  printVals(headPin); // print values for only one of the servos
-  printVals(neckTPin); // print values for only one of the servos
+  printVals(0); // print values for only one of the servos
+  printVals(1); // print values for only one of the servos
 
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
   nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
