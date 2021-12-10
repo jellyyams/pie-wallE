@@ -5,8 +5,9 @@
 // Servo driver setup
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-#define SERVOMIN  150 // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX  600 // This is the 'maximum' pulse length count (out of 4096)
+#define SERVOMIN  130 // This is the 'minimum' pulse length count (out of 4096) -> results in angle of ~30 degs, the same as if commanded by servoObject.write(30)
+#define SERVOMAX  430 // This is the 'maximum' pulse length count (out of 4096) -> results in angle of ~160 degs, the same as if commanded by servoObject.write(160)
+
 
 
 

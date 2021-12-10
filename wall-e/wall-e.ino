@@ -15,7 +15,7 @@ bool waitToStart = false; // whether to wait for something to send in the Serial
 bool dispCalc = false; // whether to display movement parameter calculations in the matchBPM() function
 bool useBPM = true;
 bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
-int servosRunning = 5; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
+int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 
 
 // Other Tuning and Setup Parameters
@@ -30,10 +30,11 @@ uint8_t armLPin =  5;
 uint8_t armRPin =  6;
 // to reduce the number of variable names, individual servo parameters are held in arrays, 
 // indexed by the pin they are pluged into (listed above)
-double goalBPM[7] =     {allBPM/2,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
-double centerPos[7] =   {60, 140, 107, 95, 95}; // (deg)
-double maxRange[7] =    {30, 30, 106, 130, 30}; // maximum total angular travel defined by mechanical limits (deg)
-double maxVel[7] =      {60, 60, 60, 60, 60}; // (deg/s)
+//                       0        1         2         3         4         5         6
+double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
+double centerPos[7] =   {95,      95,      107,      95,       105,       95,       95}; // (deg)
+double maxRange[7] =    {30,      30,       106,      130,      110,       30,       30}; // maximum total angular travel defined by mechanical limits (deg)
+double maxVel[7] =      {20,      20,       60,       60,       60,       60,       60}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
 double maxTimeMult = 5; // maximum baseTime multiplier to check
@@ -54,7 +55,7 @@ double minPos[7]; // bottom of travel defined by range and centerPos - NOT neces
 double maxPos[7]; // top of travel defined by range and centerPos    -                      "                             (deg)
 double curPos[7]; // (deg)
 double nextPos[7]; // (deg)
-int dir[7] = {1,1,1,1,1,1,1}; // direction servo is currently moving, + for towards maxPos, - for towards minPos
+int dir[7] = {-1,1,1,1,-1,1,1}; // direction servo is currently moving, + for towards maxPos (CC), - for towards minPos (CW)
 unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
@@ -90,6 +91,8 @@ void setup() {
     
     setServo(i); // set servo to one end
   }
+
+  setEyeModeLift();
   
   // Wait to begin main loop until user inputs something if waitToStart = true (in order to manually start on beat)
   if (waitToStart) {
@@ -252,11 +255,13 @@ void printVals(uint8_t s) {
   // WARNING: Uncomment only currently relevant lines. Printing too many statements per loop can overflow Arduino/COM buffer and cause failure
 //  Serial.print("s"); Serial.print(s); Serial.print(" stepDist="); Serial.println(stepDist[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" curPos="); Serial.println(curPos[s]);
+//  Serial.print("s"); Serial.print(s); Serial.print(" dir="); Serial.println(dir[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" range="); Serial.println(range[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" minPos="); Serial.println(minPos[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" maxPos="); Serial.println(maxPos[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" realVel="); Serial.println(realVel[s]);
+  Serial.print("s"); Serial.print(s); Serial.print(" timeMult="); Serial.println(timeMult[s]);
 }
 
 void setServo(uint8_t s) {
@@ -298,12 +303,33 @@ void shakeHead() {
 
 void bobHead() {
   // sends servo commands for one step of the bobHead dance move
+  updatePos(neckTPin, adjBPM, false);
+  updatePos(neckBPin, adjBPM, false);
 }
 
 void swingArms() {
   // sends servo commands for one step of the swingArms dance move
   updatePos(armRPin, adjBPM, false);
   updatePos(armLPin, adjBPM, false);
+}
+
+void setEyeModeLift() {
+  // set right eye to opposite side of range from left eye so that eyes raise and lower together
+  dir[eyeRPin] = -1;
+  curPos[eyeRPin] = maxPos[eyeRPin];
+  nextPos[eyeRPin] = maxPos[eyeRPin];
+  dir[eyeLPin] = 1;
+  curPos[eyeLPin] = minPos[eyeLPin];
+  nextPos[eyeLPin] = minPos[eyeLPin];
+}
+
+void setEyeModeTilt() {
+  dir[eyeRPin] = 1;
+  curPos[eyeRPin] = minPos[eyeRPin];
+  nextPos[eyeRPin] = minPos[eyeRPin];
+  dir[eyeLPin] = 1;
+  curPos[eyeLPin] = minPos[eyeLPin];
+  nextPos[eyeLPin] = minPos[eyeLPin];
 }
 
 void moveEyes() {
@@ -340,14 +366,21 @@ void loop() {
 //  Serial.print("realStepLength="); Serial.println(realStepLength);
 
 //  runAllServos();
-//  nodHead();
+//  moveEyes();
 //  shakeHead();
+//  nodHead();
+  bobHead();
+//  swingArms();
 
-  setServoPos(0,95);
-  setServoPos(1,95);
+
+
+//  setServoPos(0,95);
+//  setServoPos(1,50);
   
-  printVals(0); // print values for only one of the servos
-  printVals(1); // print values for only one of the servos
+//  printVals(0); // print values for only one of the servos
+  printVals(5); // print values for only one of the servos
+  printVals(6); // print values for only one of the servos
+
 
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
   nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
