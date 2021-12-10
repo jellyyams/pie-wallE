@@ -1,8 +1,5 @@
-// sound in WAV format, we're not concernet with most of the header bytes
-// just samples per second and data size, we will always save in 8bit 
-// unsigned pcm
-// sample rate is at offset 24, data size at
-
+/* C:\Users\khinh\Documents\GrabCAD\Wall-E\eve.wav (12/5/2021 3:34:00 PM)
+   StartOffset: 00000000, EndOffset: 0000ADBF, Length: 0000ADC0 */
 
 const unsigned char Force[44480] = {
 0x52, 0x49, 0x46, 0x46, 0xB8, 0xAD, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
