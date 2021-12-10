@@ -35,8 +35,6 @@ double maxVel[7] =      {60, 60, 60, 60, 60}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
 double maxTimeMult = 5; // maximum baseTime multiplier to check
-//int microphonePin = A0; 
-//int microphoneValue = 0; 
 
 
 // Initalization of other global variables
@@ -224,17 +222,6 @@ void setServo(uint8_t s) {
   curPos[s] = nextPos[s];
 }
 
-void setServoPos(uint8_t s, double pos) {
-  // Set servo s to nextPos, update curPos to nextPos
-  // calculate pulselen from deg (of nextPos)
-  nextPos[s] = pos;
-  int pulselen = map(nextPos[s], 30, 160, SERVOMIN, SERVOMAX);
-  // set PWM to pulselen
-  pwm.setPWM(s, 0, pulselen);
-  // update curPos
-  curPos[s] = nextPos[s];
-}
-
 void runAllServos() {
   for (uint8_t i = 0; i < servosRunning; i++) { // run the first 5 (or other val for servosRunning) servos and skip the rest
     updatePos(i, adjBPM, false); // which servo to update, whether to adjust bpm, whether to print values
@@ -267,22 +254,9 @@ void moveEyes() {
   updatePos(eyeLPin, adjBPM, false);
 }
 
-//void updateBPM(int val){
-//  Serial.println(val); 
-//  if (val > 350){
-//    currBPM = 75; 
-//  } else if (val > 450) {
-//    currBPM = 85; 
-//  } else {
-//    currBPM = 70; 
-//  }
-//}
 
 void loop() {
-  
-  // update bpm from beat sensing
-//  microphoneValue = analogRead(microphonePin); 
-//  updateBPM(microphoneValue); 
+
 
   // check the current time
   currMilli = millis();
