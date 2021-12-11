@@ -272,6 +272,17 @@ void setServo(uint8_t s) {
   curPos[s] = nextPos[s];
 }
 
+void setServoPos(uint8_t s, double pos) {
+  // Directly set servo s to pos, update curPos and nextPos to pos
+  // calculate pulselen from deg (of nextPos)
+  nextPos[s] = pos;
+  int pulselen = map(nextPos[s], 30, 160, SERVOMIN, SERVOMAX);
+  // set PWM to pulselen
+  pwm.setPWM(s, 0, pulselen);
+  // update curPos
+  curPos[s] = nextPos[s];
+}
+
 void runAllServos() {
   for (uint8_t i = 0; i < servosRunning; i++) { // run the first 5 (or other val for servosRunning) servos and skip the rest
     updatePos(i, adjBPM, false); // which servo to update, whether to adjust bpm, whether to print values
