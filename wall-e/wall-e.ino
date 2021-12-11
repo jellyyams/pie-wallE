@@ -30,11 +30,11 @@ uint8_t armLPin =  5;
 uint8_t armRPin =  6;
 // to reduce the number of variable names, individual servo parameters are held in arrays, 
 // indexed by the pin they are pluged into (listed above)
-//                       0        1         2         3         4         5         6
+//                       0          1           2         3         4         5         6
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
-double centerPos[7] =   {95,      95,      107,      95,       105,       95,       95}; // (deg)
-double maxRange[7] =    {30,      30,       106,      130,      110,       30,       30}; // maximum total angular travel defined by mechanical limits (deg)
-double maxVel[7] =      {20,      20,       60,       60,       60,       60,       60}; // (deg/s)
+double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
+double maxRange[7] =    {30,        30,         106,      130,      110,       30,       30}; // maximum total angular travel defined by mechanical limits (deg)
+double maxVel[7] =      {20,        20,         60,       60,       60,       60,       60}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
 double maxTimeMult = 5; // maximum baseTime multiplier to check
