@@ -108,17 +108,17 @@ int LED1Mode = HIGH;
 //Pins
 
 const uint8_t buttonPin = 34;
-const uint8_t LEDPin1 = 19;
-const uint8_t LEDPin2 = 35;
-const uint8_t LEDPin3 = 21;
+const uint8_t LEDPin1 = 26;
+const uint8_t LEDPin2 = 27;
+const uint8_t LEDPin3 = 13;
 const uint8_t speakerPin = 25; 
 const uint8_t microphonePin = 36;
 const uint8_t motor1pin1 = 18;
 const uint8_t motor1pin2 = 5;
 const uint8_t motor2pin1 = 16;
 const uint8_t motor2pin2 = 17;
-const uint8_t motor1speed = 4; 
-const uint8_t motor2speed = 2; 
+const uint8_t motor1speed = 19; 
+const uint8_t motor2speed = 15; 
 
 const uint8_t eyeRPin =  0;
 const uint8_t eyeLPin =  1;
@@ -415,6 +415,15 @@ void moveMotors(){
   
 }
 
+void stopMotors(){
+  digitalWrite(motor1pin1, LOW);
+  digitalWrite(motor1pin2, LOW);
+
+  digitalWrite(motor2pin1, LOW);
+  digitalWrite(motor2pin2, LOW);
+  
+}
+
 void testMicrophone(){
   adc = analogRead(microphonePin); 
   Serial.println(adc); 
@@ -585,9 +594,23 @@ void loop(){
   current_state = digitalRead(34); 
   
   if (last_state == LOW && current_state == HIGH){
-    
     buttonmode = buttonmode%6 + 1; 
   }
+
+ digitalWrite(LEDPin1, HIGH);
+ delay(1000);
+ digitalWrite(LEDPin1, LOW);
+ delay(1000);
+
+ digitalWrite(LEDPin2, HIGH);
+ delay(1000);
+ digitalWrite(LEDPin2, LOW);
+ delay(1000);
+
+ digitalWrite(LEDPin3, HIGH);
+ delay(1000);
+ digitalWrite(LEDPin3, LOW);
+ delay(1000);
   
   last_state = current_state; 
   
@@ -604,6 +627,7 @@ void loop(){
     moveMotorsToBPM(); 
     
   } else if (buttonmode == 5){
+    stopMotors(); 
     Serial.println("five pressed");
     playAudio(); 
   
