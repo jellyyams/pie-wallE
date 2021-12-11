@@ -39,7 +39,7 @@ unsigned long baseTime = 20; // the ideal length of each loop (ms)
 const bool waitToStart = false; // whether to wait for something to send in the Serial input before starting (in order to manually start on the beat)
 const bool dispCalc = false; // whether to display movement parameter calculations in the matchBPM() function
 const bool dispServoInfo = false; 
-const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
+const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
 const int servosRunning = 5; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 
 
@@ -65,6 +65,7 @@ unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
 int currMult[7] = {1,1,1,1,1,1,1}; // counter to only update servo position after timeMult baseTime intervals
+
 
 unsigned long oldMilli = 0; // (ms timestamp)
 unsigned long currMilli = 0; // (ms timestamp)
@@ -221,7 +222,6 @@ void calcNextPos(uint8_t s) {
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
-    if (adjBPM) {adjustBPM(s,2);}
   }
 }
 
@@ -345,7 +345,7 @@ void setUpServos(){
     curPos[i] = minPos[i];
     nextPos[i] = minPos[i];
     
-    //matchBPM(i,goalBPM[i]); // comment out to allow non bpm-matching trials
+    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
     
     setServo(i); // set servo to one end
    }
