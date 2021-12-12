@@ -44,6 +44,7 @@ const bool dispCalc = false; // whether to display movement parameter calculatio
 const bool dispServoInfo = false; 
 const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
 const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
+const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
 
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
 double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
@@ -67,6 +68,7 @@ unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
 int currMult[7] = {1,1,1,1,1,1,1}; // counter to only update servo position after timeMult baseTime intervals
+
 
 unsigned long oldMilli = 0; // (ms timestamp)
 unsigned long currMilli = 0; // (ms timestamp)
@@ -221,6 +223,17 @@ void setServo(uint8_t s) {
   curPos[s] = nextPos[s];
 }
 
+void setServoPos(uint8_t s, double pos) {
+  /* Directly set servo s to pos, update curPos and nextPos to pos */
+  
+  // calculate pulselen from deg (of pos)
+  nextPos[s] = pos;
+  int pulselen = map(nextPos[s], 30, 160, SERVOMIN, SERVOMAX);
+  // set PWM to pulselen
+  pwm.setPWM(s, 0, pulselen);
+  // update curPos
+  curPos[s] = nextPos[s];
+}
 
 void calcNextPos(uint8_t s) {  
   /* Calculate the next position of servo s */
@@ -238,7 +251,6 @@ void calcNextPos(uint8_t s) {
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
-    if (adjBPM) {adjustBPM(s,2);}
   }
 }
 
@@ -366,7 +378,7 @@ void setUpServos(){
     curPos[i] = minPos[i];
     nextPos[i] = minPos[i];
     
-    //matchBPM(i,goalBPM[i]); // comment out to allow non bpm-matching trials
+    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
     
     setServo(i); // set servo to one end
    }
