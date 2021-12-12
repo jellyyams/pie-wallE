@@ -16,14 +16,17 @@
 #include "XT_DAC_Audio.h";
 #include <Adafruit_PWMServoDriver.h>
 
-int buttonmode = 0; 
+int buttonmode1 = 0; 
+int buttonmode2 = 0; 
 bool setUpBPM_bool = true;
 bool setUpSpeaker_bool = true; 
 bool setUpServos_bool = true; 
 bool setUpLED_bool = true; 
 bool setUpMotor_bool = true; 
-int current_state; 
-int last_state = HIGH; 
+int current_state1; 
+int last_state1 = HIGH; 
+int current_state2; 
+int last_state2 = HIGH; 
 
 int motor_mode = HIGH; 
 
@@ -40,13 +43,12 @@ const bool waitToStart = false; // whether to wait for something to send in the 
 const bool dispCalc = false; // whether to display movement parameter calculations in the matchBPM() function
 const bool dispServoInfo = false; 
 const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
-const int servosRunning = 5; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
+const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 
-
-double goalBPM[7] =     {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM};
-double centerPos[7] =   {60, 140, 107, 95, 95}; // (deg)
-double maxRange[7] =    {30, 30, 106, 130, 30}; // maximum total angular travel defined by mechanical limits (deg)
-double maxVel[7] =      {60, 60, 60, 60, 60}; // (deg/s)
+double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
+double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
+double maxRange[7] =    {30,        30,         106,      130,      110,       30,       30}; // maximum total angular travel defined by mechanical limits (deg)
+double maxVel[7] =      {20,        20,         60,       60,       60,       60,       60}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
 double maxTimeMult = 5; // maximum baseTime multiplier to check
@@ -60,7 +62,7 @@ double minPos[7]; // bottom of travel defined by range and centerPos - NOT neces
 double maxPos[7]; // top of travel defined by range and centerPos    -                      "                             (deg)
 double curPos[7]; // (deg)
 double nextPos[7]; // (deg)
-int dir[7] = {1,1,1,1,1,1,1}; // direction servo is currently moving, + for towards maxPos, - for towards minPos
+int dir[7] = {-1,1,1,1,-1,1,1}; // direction servo is currently moving, + for towards maxPos, - for towards minPos
 unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
@@ -84,6 +86,8 @@ double vReal[SAMPLES];
 double vImag[SAMPLES];
 unsigned long prev_time; 
 unsigned long curr_time; 
+
+
 // Low-pass filter
 
 const float cutoff_freq  = 20;  //Cutoff frequency in Hz
@@ -96,7 +100,7 @@ Filter f(cutoff_freq, sampling_time, order);
 
 uint8_t count = 0;
 const int time_listening = 5; 
-const int freq_thresh = 250;  
+const int freq_thresh = 300;  
 unsigned int last_beat_detected = 0; 
 const int num_samples = 10; 
 int index_beats = 0; 
@@ -107,7 +111,8 @@ int LED1Mode = HIGH;
 
 //Pins
 
-const uint8_t buttonPin = 34;
+const uint8_t buttonPin1 = 34;
+const uint8_t buttonPin2 = 39;
 const uint8_t LEDPin1 = 26;
 const uint8_t LEDPin2 = 27;
 const uint8_t LEDPin3 = 13;
@@ -117,8 +122,8 @@ const uint8_t motor1pin1 = 18;
 const uint8_t motor1pin2 = 5;
 const uint8_t motor2pin1 = 16;
 const uint8_t motor2pin2 = 17;
-const uint8_t motor1speed = 19; 
-const uint8_t motor2speed = 15; 
+const uint8_t motor1speed = 15; 
+const uint8_t motor2speed = 19; 
 
 const uint8_t eyeRPin =  0;
 const uint8_t eyeLPin =  1;
@@ -146,7 +151,11 @@ void shakeHead() {
 }
 
 void bobHead() {
-  /* sends servo commands for one step of the bobHead dance move */
+  /* sends servo commands for one step of the bobHead dance move *
+   *  
+   */
+  updatePos(neckTPin);
+  updatePos(neckBPin);
 }
 
 void swingArms() {
@@ -159,6 +168,25 @@ void moveEyes() {
   /* sends servo commands for one step of the tiltHead dance move */
   updatePos(eyeRPin);
   updatePos(eyeLPin);
+}
+
+void setEyeModeLift() {
+  // set right eye to opposite side of range from left eye so that eyes raise and lower together
+  dir[eyeRPin] = -1;
+  curPos[eyeRPin] = maxPos[eyeRPin];
+  nextPos[eyeRPin] = maxPos[eyeRPin];
+  dir[eyeLPin] = 1;
+  curPos[eyeLPin] = minPos[eyeLPin];
+  nextPos[eyeLPin] = minPos[eyeLPin];
+}
+
+void setEyeModeTilt() {
+  dir[eyeRPin] = 1;
+  curPos[eyeRPin] = minPos[eyeRPin];
+  nextPos[eyeRPin] = minPos[eyeRPin];
+  dir[eyeLPin] = 1;
+  curPos[eyeLPin] = minPos[eyeLPin];
+  nextPos[eyeLPin] = minPos[eyeLPin];
 }
 
 
@@ -244,6 +272,7 @@ void matchBPM(uint8_t s, double BPM) {
     if (newRange > maxRange[s]) { // if the ideal range is outside of maxRange, then use maxRange and move servo slower (smaller step size)
       newRange = maxRange[s];
       newStep = calcStep(BPM, newTimeMult, newRange);
+      Serial.println("Range too large");
     }
     
     newBPM = calcBPM(newTimeMult, newStep, newRange); // calculate the bpm with parameters determined above to check our work
@@ -325,6 +354,9 @@ void moveToBPM(){
 }
 
 void setUpServos(){
+  digitalWrite(LEDPin1, LOW);
+  digitalWrite(LEDPin2, LOW);  
+  Serial.println("three pressed");
   setUpServos_bool = false; 
   for (uint8_t i = 0; i < servosRunning; i++) {
     // default values to allow non bpm-matching trials
@@ -378,15 +410,24 @@ void setUpSpeaker(){
 void moveMotorsToBPM(){
 
   if (setUpMotor_bool){
-    Serial.println("set up motors"); 
-    setUpMotor_bool = false; 
-    prev_time = millis(); 
+    setUpMotors(); 
   } else {
     if (millis() - prev_time >= (4*bpm_period)){
+      Serial.println("changing direction"); 
       prev_time = millis(); 
       moveMotors(); 
     }
   } 
+}
+
+void setUpMotors(){
+  Serial.println("set up motors"); 
+  digitalWrite(LEDPin1, HIGH); 
+  digitalWrite(LEDPin2, HIGH); 
+  digitalWrite(LEDPin3, LOW); 
+  setUpMotor_bool = false; 
+  prev_time = millis(); 
+  
 }
 
 void moveMotors(){
@@ -511,23 +552,20 @@ void findMedianBPM(int beats[], int num_samples){
   int mid_index = num_samples / 2; 
   Serial.println("median bpm"); 
   Serial.println(beats[mid_index]); 
-  digitalWrite(LEDPin1, HIGH); 
   allBPM = beats[mid_index];  
   bpm_period = 1000 * (60 / allBPM); 
-  if (allBPM < 200){
-    digitalWrite(LEDPin1, LOW);
-    digitalWrite(LEDPin2, HIGH); 
-  }
 }
 
 void listenForBPM(){
-  
   if(setUpBPM_bool){
     setUpBPM(); 
+    digitalWrite(LEDPin3, LOW);
+    digitalWrite(LEDPin2, LOW);
   }
     
-  int dom_freq = runFFT(); 
-  //Serial.println(dom_freq); 
+  int dom_freq = runFFT();
+   
+  Serial.println(dom_freq); 
   if(dom_freq > freq_thresh){
     storeAndFindBeats(); 
     
@@ -558,6 +596,54 @@ void storeAndFindBeats(){
   
 }
 
+void runWalle(){
+
+  current_state1 = digitalRead(buttonPin1); 
+    
+  if (last_state1 == LOW && current_state1 == HIGH){
+    buttonmode1 = buttonmode1%6 + 1; 
+  }
+
+  last_state1 = current_state1; 
+
+  if (buttonmode1 == 1) {
+    digitalWrite(LEDPin1, HIGH); 
+    digitalWrite(LEDPin2, HIGH);
+    digitalWrite(LEDPin3, LOW);
+    //greeting
+   
+  } else if (buttonmode1 == 2) {
+    listenForBPM();
+    blinkToBPM(); 
+     
+  } else if (buttonmode1 == 3) {
+    moveToBPM();
+    
+  } else if (buttonmode1 == 4){
+    moveMotorsToBPM(); 
+    
+  } else if (buttonmode1 == 5){
+    stopMotors(); 
+    Serial.println("five pressed");
+    digitalWrite(LEDPin1, LOW);
+    digitalWrite(LEDPin2, LOW); 
+//    playAudio(); 
+  
+  } else if (buttonmode1 == 6){
+    digitalWrite(LEDPin1, LOW); 
+    digitalWrite(LEDPin2, LOW);
+    digitalWrite(LEDPin3, HIGH);
+
+    setUpMotor_bool = true; 
+    setUpBPM_bool = true; 
+    setUpServos_bool = true;
+    setUpSpeaker_bool = true;  
+    setUpLED_bool = true; 
+    Serial.println("Reset"); 
+    
+  }
+}
+
 void setup(){
   //set up servo driver communication
   pwm.begin();
@@ -575,7 +661,8 @@ void setup(){
   pinMode(LEDPin1, OUTPUT); 
   pinMode(LEDPin2, OUTPUT); 
   pinMode(LEDPin3, OUTPUT); 
-  pinMode(buttonPin, INPUT); 
+  pinMode(buttonPin1, INPUT); 
+  pinMode(buttonPin2, INPUT);
   pinMode(microphonePin, INPUT); 
   prev_time = millis();  
 
@@ -591,53 +678,21 @@ void setup(){
 
 void loop(){ 
 //when button is clicked, switch mode
-  current_state = digitalRead(34); 
+  current_state2 = digitalRead(buttonPin2); 
+
   
-  if (last_state == LOW && current_state == HIGH){
-    buttonmode = buttonmode%6 + 1; 
+  if (last_state2 == LOW && current_state2 == HIGH){
+    buttonmode2 = buttonmode2%2 + 1; 
   }
 
- digitalWrite(LEDPin1, HIGH);
- delay(1000);
- digitalWrite(LEDPin1, LOW);
- delay(1000);
+  last_state2 = current_state2; 
+  listenForBPM(); 
 
- digitalWrite(LEDPin2, HIGH);
- delay(1000);
- digitalWrite(LEDPin2, LOW);
- delay(1000);
-
- digitalWrite(LEDPin3, HIGH);
- delay(1000);
- digitalWrite(LEDPin3, LOW);
- delay(1000);
-  
-  last_state = current_state; 
-  
-  if (buttonmode == 1) { 
-    listenForBPM();  
-  } else if (buttonmode == 2) {
-    blinkToBPM(); 
-     
-  } else if (buttonmode == 3) {
-    Serial.println("three pressed");
-    moveToBPM();
-    
-  } else if (buttonmode == 4){
-    moveMotorsToBPM(); 
-    
-  } else if (buttonmode == 5){
-    stopMotors(); 
-    Serial.println("five pressed");
-    playAudio(); 
-  
-  } else if (buttonmode == 6){
-    Serial.println("six pressed");
-    setUpBPM_bool = true; 
-    setUpServos_bool = true;
-    setUpSpeaker_bool = true;  
-    setUpLED_bool = true; 
-    Serial.println("Do nothing mode"); 
-    
+  if(buttonmode2 == 1){
+    digitalWrite(LEDPin3, HIGH); 
+  } else if (buttonmode2 == 2){
+    digitalWrite(LEDPin3, LOW); 
+    runWalle(); 
   }
+  
 }
