@@ -143,37 +143,38 @@ XT_Wav_Class StarWars(Force);
 
 
 void nodHead() {
-  /* sends servo commands for one step of the nodHead dance move */
+  /* Send servo commands for one step of the nodHead dance move */
   updatePos(neckTPin);
 }
 
 void shakeHead() {
-  /* sends servo commands for one step of the shakeHead dance move */
+  /* Sends servo commands for one step of the shakeHead dance move */
   updatePos(headPin);
 }
 
 void bobHead() {
-  /* sends servo commands for one step of the bobHead dance move *
-   *  
-   */
+  /* Send servo commands for one step of the bobHead dance move */
   updatePos(neckTPin);
   updatePos(neckBPin);
 }
 
 void swingArms() {
-  /* sends servo commands for one step of the swingArms dance move */
+  /* Send servo commands for one step of the swingArms dance move */
   updatePos(armRPin);
   updatePos(armLPin);
 }
 
 void moveEyes() {
-  /* sends servo commands for one step of the tiltHead dance move */
+  /* Send servo commands for one step of the moveEyes dance move
+   * Does one step of head tilting if setEyeModeTilt() was last to run
+   * Does one step of eye lifting if setEyeModeLift() was last run
+   */
   updatePos(eyeRPin);
   updatePos(eyeLPin);
 }
 
 void setEyeModeLift() {
-  // set right eye to opposite side of range from left eye so that eyes raise and lower together
+  /* Set right eye to opposite side of range from left eye so that eyes raise and lower together */
   dir[eyeRPin] = -1;
   curPos[eyeRPin] = maxPos[eyeRPin];
   nextPos[eyeRPin] = maxPos[eyeRPin];
@@ -183,6 +184,7 @@ void setEyeModeLift() {
 }
 
 void setEyeModeTilt() {
+  /* Set right eye to same side of range as left eye so that eyes tilt together from side to side */
   dir[eyeRPin] = 1;
   curPos[eyeRPin] = minPos[eyeRPin];
   nextPos[eyeRPin] = minPos[eyeRPin];
@@ -190,7 +192,6 @@ void setEyeModeTilt() {
   curPos[eyeLPin] = minPos[eyeLPin];
   nextPos[eyeLPin] = minPos[eyeLPin];
 }
-
 
 void runAllServos() {
   /* Run through all servos and update their positions */
@@ -201,13 +202,15 @@ void runAllServos() {
 }
 
 void updatePos(uint8_t s) {
-  // run this each loop for each servo to move them at the right speed and range
+  /* Move servo if the servo should be moved in this loop, and update currPos and nextPos accordingly 
+   * Run this every loop for each servo to move them at the right speed and range 
+   */
+   
   if (currMult[s] == timeMult[s]) { // check if it's been the right number of baseTime steps to move the servo again
     // if yes, reset the counter and get next position
     currMult[s] = 1;
     calcNextPos(s);
     if (dispServoInfo) { printVals(1); } // print values for this servo if user wants them displayed (for debugging)
-    
     setServo(s); 
   } else {
     // if no, just add to counter and don't move servo
