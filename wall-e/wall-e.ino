@@ -311,6 +311,12 @@ void swingArms() {
   updatePos(armLPin, adjBPM, false);
 }
 
+void moveEyes() {
+  // sends servo commands for one step of the moveEyes dance move
+  updatePos(eyeRPin, adjBPM, false);
+  updatePos(eyeLPin, adjBPM, false);
+}
+
 void setEyeModeLift() {
   // set right eye to opposite side of range from left eye so that eyes raise and lower together
   dir[eyeRPin] = -1;
@@ -330,11 +336,7 @@ void setEyeModeTilt() {
   nextPos[eyeLPin] = minPos[eyeLPin];
 }
 
-void moveEyes() {
-  // sends servo commands for one step of the tiltHead dance move
-  updatePos(eyeRPin, adjBPM, false);
-  updatePos(eyeLPin, adjBPM, false);
-}
+
 
 
 void loop() {
