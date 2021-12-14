@@ -40,12 +40,11 @@ int SERVO_FREQ = 50; // Analog servos run at ~50 Hz updates
 int SERVOMIN  = 130; // This is the 'minimum' pulse length count (out of 4096)
 int SERVOMAX  = 430; // This is the 'maximum' pulse length count (out of 4096)
 
-double allBPM = 60; // bpm to set all of the servos to (so that it can be adjusted between servos so that some parts can move at half speed of others)
+double allBPM = 50; // bpm to set all of the servos to (so that it can be adjusted between servos so that some parts can move at half speed of others)
 unsigned long baseTime = 20; // the ideal length of each loop (ms)
 const bool waitToStart = false; // whether to wait for something to send in the Serial input before starting (in order to manually start on the beat)
-const bool dispCalc = false; // whether to display movement parameter calculations in the matchBPM() function
-const bool dispServoInfo = false; 
-const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
+const bool dispCalc = true; // whether to display movement parameter calculations in the matchBPM() function
+const bool dispServoInfo = true; 
 const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
 const int greetingLen = 10000; // time to spend on greeting sequence (ms)
@@ -53,7 +52,7 @@ const int greetingLen = 10000; // time to spend on greeting sequence (ms)
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
 double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
 double maxRange[7] =    {30,        30,         106,      130,      110,       30,       30}; // maximum total angular travel defined by mechanical limits (deg)
-double maxVel[7] =      {20,        20,         60,       60,       60,       60,       60}; // (deg/s)
+double maxVel[7] =      {20,        20,         60,       60,       60,       30,       30}; // (deg/s)
 double maxError = 1.0; // max difference between newBPM or closestBPM and goalBPM
 double minStep = 0.1; // minimum step distance (deg)
 double maxTimeMult = 5; // maximum baseTime multiplier to check
@@ -108,7 +107,10 @@ Filter f(cutoff_freq, sampling_time, order);
 
 uint8_t count = 0;
 const int time_listening = 5; 
-const int freq_thresh = 300;  
+const int freq_min = 240;  
+const int freq_max = 700; 
+const int bpm_min = 20; 
+const int bpm_max = 200; 
 unsigned int last_beat_detected = 0; 
 const int num_samples = 10; 
 int index_beats = 0; 
@@ -125,7 +127,7 @@ const uint8_t LEDPin1 = 26;
 const uint8_t LEDPin2 = 27;
 const uint8_t LEDPin3 = 13;
 const uint8_t speakerPin = 25; 
-const uint8_t microphonePin = 36;
+const uint8_t microphonePin = 35;
 const uint8_t motor1pin1 = 18;
 const uint8_t motor1pin2 = 5;
 const uint8_t motor2pin1 = 16;
@@ -218,8 +220,8 @@ void updatePos(uint8_t s) {
     // if yes, reset the counter and get next position
     currMult[s] = 1;
     calcNextPos(s);
-    if (dispServoInfo) { printVals(1); } // print values for this servo if user wants them displayed (for debugging)
-    setServo(s); 
+    if (dispServoInfo) { printVals(s); } // print values for this servo if user wants them displayed (for debugging)
+    setServo(s);  
   } else {
     // if no, just add to counter and don't move servo
     currMult[s] = currMult[s] + 1;
@@ -240,31 +242,43 @@ void setServoPos(uint8_t s, double pos) {
   // calculate pulselen from deg (of pos)
   nextPos[s] = pos;
   int pulselen = map(nextPos[s], 30, 160, SERVOMIN, SERVOMAX);
-  // set PWM to pulselen
   pwm.setPWM(s, 0, pulselen);
-  // update curPos
+
   curPos[s] = nextPos[s];
 }
 
 void calcNextPos(uint8_t s) {  
   /* Calculate the next position of servo s */
-  nextPos[s] = curPos[s] + dir[s]*stepDist[s];
+ 
   // switch directions and record real measurements at each end of range
   if (nextPos[s] > maxPos[s]) {
     dir[s] = -1;
-    nextPos[s] = maxPos[s]- stepDist[s];
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
+
   } else if (nextPos[s] < minPos[s]) {
     dir[s] = 1;
-    nextPos[s] = minPos[s]+ stepDist[s];
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
+
   }
+
+// adjustBPM(s, 2); 
+
+//  if (millis() - prevMillis > (bpm_period * step
+
+  nextPos[s] = curPos[s] + dir[s]*stepDist[s];
+ 
 }
 
+void adjustBPM(uint8_t s, double reduction){
+  // runs the matchBPM function again with a slightly higher bpm if realBPM is too slow
+  if (realBPM[s] < goalBPM[s]) {
+    matchBPM(s, goalBPM[s]+(goalBPM[s]-realBPM[s])/reduction);
+  }
+}
 void matchBPM(uint8_t s, double BPM) {
   /* changes a servo's timeMult, stepDist, and range to hit a given BPM */
   
@@ -304,6 +318,10 @@ void matchBPM(uint8_t s, double BPM) {
       Serial.println(newBPM);
       Serial.print("newError="); 
       Serial.println(newError);
+      Serial.print(" minPos="); 
+      Serial.println(minPos[s]);
+      Serial.print(" maxPos="); 
+      Serial.println(maxPos[s]);
     }
       
     if (newError > -0.01 && abs(newError) < abs(closestError) && newStep >= minStep) { 
@@ -322,40 +340,15 @@ void matchBPM(uint8_t s, double BPM) {
 }
 
 double stepFromTimeMult(double newTimeMult, double vel) {
-  /* Calculate step distance using time between steps (defined by newTimeMult*baseTime) and an angular speed of the servo (vel, in deg/s)
-  vel (deg)     stepDist (deg)            1000 (ms)
-  --------- =   ----------------------  x ---------
-  (s)           timeMult*baseTime (ms)    (s)
-  
-  --> Solve for stepDist
-                    vel (deg)                                (s)
-  stepDist (deg) =  ---------   x timeMult*baseTime (ms)  x  -------
-                    (s)                                      1000 (ms)
-  */
   return vel*double(newTimeMult*baseTime)/1000.0;
 }
 double calcStep(double bpm,int newTimeMult, double newRange) {
-  /* Calculate range of movement based on a bpm, the time between steps (defined by newTimeMult*baseTime), and the step distance (deg)
-  range (deg)   (min)           60 (s)   1000 (ms)      stepDist (deg)
-  ----------- = --------   x    ----  x  -------    x   ----------------------
-  (beat)        bpm (beat)      (min)    (s)            timeMult*baseTime (ms)
-  */
   return newRange*bpm*double(newTimeMult*baseTime)/(60.0*1000.0);
 }
 double calcRange(double bpm,int newTimeMult, double newStep) {
-  /* Calculate step distance based on a bpm, the time between steps (defined by newTimeMult*baseTime), and the range of movement (deg)
-                    range (deg)     bpm (beat)    (min)       (s)
-  stepDist (deg) =  -----------  x  ----------  x ------    x ---------  x  timeMult*baseTime (ms)
-                    (beat)          (min)         60 (s)      1000 (ms)
-  */
   return 60.0*1000.0*newStep/(bpm*double(newTimeMult*baseTime));
 }
 double calcBPM(int newTimeMult, double newStep, double newRange) {
-  /* Calculates bpm based on the time between steps (defined by newTimeMult*baseTime), the step distance (deg), and the range of movement (deg)
-  bpm (beat)    (beat)          stepDist (deg)                1000 (ms)     60 (s)
-  ---------- =  -----------  x  ----------------------     x  ---------   x ------
-  (min)         range (deg)     timeMult*baseTime (ms)        (s)           (min)
-  */
   return newStep*1000.0*60.0/(newRange*double(newTimeMult*baseTime));
 }
 
@@ -366,7 +359,7 @@ void printVals(uint8_t s) {
 //  Serial.print("s"); Serial.print(s); Serial.print(" range="); Serial.println(range[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" minPos="); Serial.println(minPos[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" maxPos="); Serial.println(maxPos[s]);
-//  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
+  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" realVel="); Serial.println(realVel[s]);
 }
 
@@ -381,7 +374,9 @@ void moveToBPM(){
   realStepLength = currMilli - oldMilli;
   oldMilli = currMilli;
   
-  //runAllServos();
+  updatePos(neckBPin); 
+  updatePos(neckTPin); 
+
   
   
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
@@ -398,18 +393,15 @@ void setUpServos(){
   digitalWrite(LEDPin2, LOW);  
   Serial.println("three pressed");
   setUpServos_bool = false; 
-//  for (uint8_t i = 0; i < servosRunning; i++) {
-//    // default values to allow non bpm-matching trials
-//    range[i] = maxRange[i];
-//    minPos[i] = centerPos[i]-range[i]/2;
-//    maxPos[i] = centerPos[i]+range[i]/2;
-//    curPos[i] = minPos[i];
-//    nextPos[i] = minPos[i];
-//    
-//    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
-//    
-//    setServo(i); // set servo to one end
-//   }
+  for (uint8_t i = 0; i < servosRunning; i++) {
+    // default values to allow non bpm-matching trials
+    range[i] = maxRange[i];
+    minPos[i] = centerPos[i]-range[i]/2;
+    maxPos[i] = centerPos[i]+range[i]/2;
+    curPos[i] = minPos[i];
+    nextPos[i] = minPos[i];
+    matchBPM(i,goalBPM[i]);
+   }
 }
   
 
@@ -595,7 +587,10 @@ void findMedianBPM(int beats[], int num_samples){
   }
   int mid_index = num_samples / 2; 
   Serial.println("median bpm"); 
-  Serial.println(beats[mid_index]); 
+  
+  int sum_bpm = beats[mid_index] + beats[mid_index - 1] + beats[mid_index + 1]; 
+  int avg_bpm = sum_bpm / 3; 
+  Serial.println(avg_bpm); 
   allBPM = beats[mid_index];  
   bpm_period = 1000 * (60 / allBPM); 
 }
@@ -609,8 +604,8 @@ void listenForBPM(){
     
   int dom_freq = runFFT();
    
-  Serial.println(dom_freq); 
-  if(dom_freq > freq_thresh){
+  if(dom_freq > freq_min && dom_freq < freq_max){
+    Serial.println(dom_freq);
     storeAndFindBeats(); 
     
     if(index_beats >= num_samples){
@@ -630,13 +625,17 @@ void setUpBPM(){
 void storeAndFindBeats(){
   float current_time = millis();
   float period = current_time - last_beat_detected; 
-  
   float period_seconds = (period / 1000);
   float bpm = (60 / period_seconds);
 
-  beats[index_beats] = (int)bpm; 
-  index_beats += 1; 
-  last_beat_detected = current_time;
+  int bpm_int = int(bpm);
+
+  if(bpm_int < bpm_max){
+    beats[index_beats] = (int)bpm; 
+    index_beats += 1; 
+    last_beat_detected = current_time;
+
+  }
   
 }
 
@@ -757,16 +756,16 @@ void setup(){
   Serial.begin(115200); 
   Serial.println("began"); 
 
-  range[6] = maxRange[6];
-  minPos[6] = centerPos[6]-range[6]/2;
-  maxPos[6] = centerPos[6]+range[6]/2;
-  curPos[6] = minPos[6];
-  nextPos[6] = minPos[6];
+  setUpServos(); 
 }
 
 
 void loop(){ 
 //when button is clicked, switch mode
+//  updatePos(armRPin);
+//  updatePos(armLPin);
+  moveToBPM(); 
+  
   current_state2 = digitalRead(buttonPin2); 
  
   if (last_state2 == LOW && current_state2 == HIGH){
@@ -778,9 +777,7 @@ void loop(){
 
   if(buttonmode2 == 1){
     digitalWrite(LEDPin3, HIGH); 
-  } else if (buttonmode2 == 2) {
-    runGreeting();
-  } else if (buttonmode2 == 3){
+  } else if (buttonmode2 == 2){
     digitalWrite(LEDPin3, LOW); 
     runWalle(); 
   }
