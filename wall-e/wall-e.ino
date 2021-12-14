@@ -82,6 +82,7 @@ void setup() {
     range[i] = maxRange[i];
     minPos[i] = centerPos[i]-range[i]/2;
     maxPos[i] = centerPos[i]+range[i]/2;
+    
     curPos[i] = minPos[i];
     nextPos[i] = minPos[i];
     
