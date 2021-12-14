@@ -144,10 +144,7 @@ const uint8_t armLPin =  5;
 const uint8_t armRPin =  6;
 
 
-//Playing audio
 
-XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
-XT_Wav_Class StarWars(Force); 
 
 
 void nodHead() {
@@ -424,23 +421,24 @@ void testServoDriver(){
   
 }
 
-void playAudio(){
-  /* Play walle sound from speaker */
-  if(setUpSpeaker_bool){
-    setUpSpeaker(); 
-  } 
-  
+//Playing audio
+
+XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
+XT_Wav_Class WalleName(walle_name); 
+XT_Wav_Class Tada(tada); 
+
+void playWalleName() {
   DacAudio.FillBuffer();  
+  if(WalleName.Playing==false && Tada.Playing==false)
+    DacAudio.Play(&WalleName);
 }
 
-void setUpSpeaker(){
-   /* set up speaker when starting audio output*/
-  
-  Serial.println("Playing audio");
-  StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
-  DacAudio.Play(&StarWars); 
-  setUpSpeaker_bool = false; 
+void playTada() {
+  DacAudio.FillBuffer();  
+  if(WalleName.Playing==false && Tada.Playing==false)    
+    DacAudio.Play(&Tada);
 }
+
 
 void moveMotorsToBPM(){
    /* Move DC motors to BPM*/
@@ -764,6 +762,11 @@ void loop(){
 //when button is clicked, switch mode
 //  updatePos(armRPin);
 //  updatePos(armLPin);
+
+//  playTada();
+  playWalleName();
+
+  
   moveToBPM(); 
   
   current_state2 = digitalRead(buttonPin2); 
