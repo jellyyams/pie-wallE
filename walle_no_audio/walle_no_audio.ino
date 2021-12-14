@@ -1,3 +1,4 @@
+
 /*
  * Note to self, Nov 30:
  * mpv is to play metronome for wallE for 10 seconds. 
@@ -7,16 +8,12 @@
  * 
  * Dec3: 
  * Tested out frequency parameters, 128 samples, 2000 hz, and cut off at 20 hz seems to work best. first order filter 
- * 
- * 
- * analogWrite statements may be commented out!!!!!
  */
 
-#include <arduinoFFT.h>
-#include <Wire.h>
-#include "filters.h";
-#include "SoundData.h";
-#include "XT_DAC_Audio.h";
+//#include <arduinoFFT.h>
+//#include "filters.h";
+//#include "SoundData.h";
+//#include "XT_DAC_Audio.h";
 #include <Adafruit_PWMServoDriver.h>
 
 int buttonmode1 = 0; 
@@ -48,7 +45,9 @@ const bool dispServoInfo = false;
 const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
 const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
+
 const int greetingLen = 10000; // time to spend on greeting sequence (ms)
+unsigned long greetingStart = 0;
 
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
 double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
@@ -72,7 +71,6 @@ unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
 int currMult[7] = {1,1,1,1,1,1,1}; // counter to only update servo position after timeMult baseTime intervals
-int danceNum = 0;
 
 
 unsigned long oldMilli = 0; // (ms timestamp)
@@ -80,13 +78,12 @@ unsigned long currMilli = 0; // (ms timestamp)
 unsigned long nextMilli = baseTime; // (ms timestamp)       
 unsigned long realStepLength = baseTime; // real time between the oldMilli and currMilli to check if adjustedDelay is working (ms)
 unsigned long adjustedDelay = baseTime - currMilli; // time to wait at the end of each loop in order to make timesteps the right length (ms)
-unsigned long greetingStart = 0;
 
 // Freqeuncy analysis setup
 
 #define SAMPLES 128
 int SAMPLING_FREQUENCY = 2000; //Hz, must be less than 10000 due to ADC
-arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
+//arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
 double adc; 
 uint8_t sampling_period_us;
 unsigned long microseconds;
@@ -100,8 +97,8 @@ unsigned long curr_time;
 
 const float cutoff_freq  = 20;  //Cutoff frequency in Hz
 const float sampling_time = 0.002; //Sampling time in seconds.
-IIR::ORDER  order  = IIR::ORDER::OD1; // Order (OD1 to OD4)
-Filter f(cutoff_freq, sampling_time, order);
+//IIR::ORDER  order  = IIR::ORDER::OD1; // Order (OD1 to OD4)
+//Filter f(cutoff_freq, sampling_time, order);
 
 
 //Finding most common time between beats
@@ -144,9 +141,21 @@ const uint8_t armRPin =  6;
 
 //Playing audio
 
-XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
-XT_Wav_Class StarWars(Force); 
+//XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
+//XT_Wav_Class StarWars(Force); 
 
+
+void swingArms() {
+  /* Send servo commands for one step of the swingArms dance move */
+  updatePos(armRPin);
+  updatePos(armLPin);
+}
+
+void bobHead() {
+  /* Send servo commands for one step of the bobHead dance move */
+  updatePos(neckTPin);
+  updatePos(neckBPin);
+}
 
 void nodHead() {
   /* Send servo commands for one step of the nodHead dance move */
@@ -158,31 +167,17 @@ void shakeHead() {
   updatePos(headPin);
 }
 
-void bobHead() {
-  /* Send servo commands for one step of the bobHead dance move */
-  updatePos(neckTPin);
-  updatePos(neckBPin);
-}
-
-void swingArms() {
-  /* Send servo commands for one step of the swingArms dance move */
-  updatePos(armRPin);
-  updatePos(armLPin);
-}
-
-
 void moveEyes() {
   /* Send servo commands for one step of the moveEyes dance move
    * Does one step of head tilting if setEyeModeTilt() was last to run
    * Does one step of eye lifting if setEyeModeLift() was last run
    */
   updatePos(eyeRPin);
-  
   updatePos(eyeLPin);
 }
 
 void setEyeModeLift() {
-  /* set right eye to opposite side of range from left eye so that eyes raise and lower together */
+  /* Set right eye to opposite side of range from left eye so that eyes raise and lower together */
   dir[eyeRPin] = -1;
   curPos[eyeRPin] = maxPos[eyeRPin];
   nextPos[eyeRPin] = maxPos[eyeRPin];
@@ -262,6 +257,13 @@ void calcNextPos(uint8_t s) {
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
+  }
+}
+
+void adjustBPM(uint8_t s, double reduction){
+  /* runs the matchBPM function again with a slightly higher bpm if realBPM is too slow */
+  if (realBPM[s] < goalBPM[s]) {
+    matchBPM(s, goalBPM[s]+(goalBPM[s]-realBPM[s])/reduction);
   }
 }
 
@@ -366,12 +368,11 @@ void printVals(uint8_t s) {
 //  Serial.print("s"); Serial.print(s); Serial.print(" range="); Serial.println(range[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" minPos="); Serial.println(minPos[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" maxPos="); Serial.println(maxPos[s]);
-//  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
+  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" realVel="); Serial.println(realVel[s]);
 }
 
 void moveToBPM(){
-  /* Walle servos to match the bpm */
   if(setUpServos_bool){
       setUpServos(); 
    }
@@ -381,7 +382,7 @@ void moveToBPM(){
   realStepLength = currMilli - oldMilli;
   oldMilli = currMilli;
   
-  //runAllServos();
+  runAllServos();
   
   
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
@@ -392,24 +393,22 @@ void moveToBPM(){
 }
 
 void setUpServos(){
-  /* move servos to starting position */
-  
   digitalWrite(LEDPin1, LOW);
   digitalWrite(LEDPin2, LOW);  
   Serial.println("three pressed");
   setUpServos_bool = false; 
-//  for (uint8_t i = 0; i < servosRunning; i++) {
-//    // default values to allow non bpm-matching trials
-//    range[i] = maxRange[i];
-//    minPos[i] = centerPos[i]-range[i]/2;
-//    maxPos[i] = centerPos[i]+range[i]/2;
-//    curPos[i] = minPos[i];
-//    nextPos[i] = minPos[i];
-//    
-//    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
-//    
-//    setServo(i); // set servo to one end
-//   }
+  for (uint8_t i = 0; i < servosRunning; i++) {
+    // default values to allow non bpm-matching trials
+    range[i] = maxRange[i];
+    minPos[i] = centerPos[i]-range[i]/2;
+    maxPos[i] = centerPos[i]+range[i]/2;
+    curPos[i] = minPos[i];
+    nextPos[i] = minPos[i];
+    
+    if (useBPM) {matchBPM(i,goalBPM[i]);}
+    
+    setServo(i); // set servo to one end
+   }
 }
   
 
@@ -417,14 +416,14 @@ void setUpServos(){
 void testServoDriver(){
   for (int pulseLength = SERVOMIN ; pulseLength <= SERVOMAX ; pulseLength++)    //Move each servo from servoMin to servoMax
   {
-    pwm.setPWM(6, 0, pulseLength);  //Set the current PWM pulse length on board 1, servo i
+    pwm.setPWM(0, 0, pulseLength);  //Set the current PWM pulse length on board 1, servo i
     delay(10);
     Serial.println(pulseLength); 
   }
   delay(500);
   for (int pulseLength = SERVOMAX ; pulseLength >= SERVOMIN ; pulseLength--)    ////Move each servo from servoMax to servoMin
   {
-    pwm.setPWM(6, 0, pulseLength);           //Set the current PWM pulse length on board 1, servo i
+    pwm.setPWM(0, 0, pulseLength);           //Set the current PWM pulse length on board 1, servo i
     delay(10);
     Serial.println(pulseLength); 
   }
@@ -432,26 +431,22 @@ void testServoDriver(){
   
 }
 
-void playAudio(){
-  /* Play walle sound from speaker */
-  if(setUpSpeaker_bool){
-    setUpSpeaker(); 
-  } 
-  
-  DacAudio.FillBuffer();  
-}
-
-void setUpSpeaker(){
-   /* set up speaker when starting audio output*/
-  
-  Serial.println("Playing audio");
-  StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
-  DacAudio.Play(&StarWars); 
-  setUpSpeaker_bool = false; 
-}
+//void playAudio(){
+//  if(setUpSpeaker_bool){
+//    setUpSpeaker(); 
+//  } 
+//  
+//  DacAudio.FillBuffer();  
+//}
+//
+//void setUpSpeaker(){
+//  Serial.println("Playing audio");
+//  StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
+//  DacAudio.Play(&StarWars); 
+//  setUpSpeaker_bool = false; 
+//}
 
 void moveMotorsToBPM(){
-   /* Move DC motors to BPM*/
 
   if (setUpMotor_bool){
     setUpMotors(); 
@@ -461,13 +456,10 @@ void moveMotorsToBPM(){
       prev_time = millis(); 
       moveMotors(); 
     }
-    
   } 
 }
 
 void setUpMotors(){
-  /*set up DC motors for movement*/
-  
   Serial.println("set up motors"); 
   digitalWrite(LEDPin1, HIGH); 
   digitalWrite(LEDPin2, HIGH); 
@@ -478,9 +470,7 @@ void setUpMotors(){
 }
 
 void moveMotors(){
-  /*move DC motors, swtich directioin they were preiously running*/
-  
-  analogWrite(motor1speed, 10);
+//  analogWrite(motor1speed, 10);
   analogWrite(motor2speed, 10);
   
 
@@ -506,8 +496,6 @@ void moveMotors(){
 }
 
 void stopMotors(){
-  /*Stop moving all DC motors */
-  
   digitalWrite(motor1pin1, LOW);
   digitalWrite(motor1pin2, LOW);
 
@@ -516,9 +504,17 @@ void stopMotors(){
   
 }
 
+void testMicrophone(){
+  adc = analogRead(microphonePin); 
+  Serial.println(adc); 
+ 
+  if(adc > 450){
+    digitalWrite(LEDPin1, HIGH);
+    delay(1000);
+    digitalWrite(LEDPin1, LOW);
+  }  
+}
 void blinkToBPM(){
-  /*Blink LEDs to BPM */
-  
   if (setUpLED_bool){
     Serial.println("set up leds"); 
     setUpLED_bool = false; 
@@ -533,7 +529,6 @@ void blinkToBPM(){
 }
 
 void blinkLED(){
-  /*Blink LED*/
   
   if(LED1Mode == HIGH){
     digitalWrite(LEDPin1, LOW); 
@@ -552,18 +547,18 @@ double runFFT(){
   averageFrequencySamples(sum); 
 
   // windows the data and computes the FFT
-  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
-  double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
-  return peak;
+//  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+//  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+//  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+//  double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+//  return peak;
 }
 
 double getFrequencySamples(){
   double sum = 0;
   for (int i = 0; i < SAMPLES; i++) {
     unsigned long newTime= micros();  
-    adc=f.filterIn(analogRead(microphonePin));
+//    adc=f.filterIn(analogRead(microphonePin));
     vReal[i] = (double)adc; 
     sum += adc;
     vImag[i] = 0;
@@ -688,17 +683,9 @@ void runWalle(){
   }
 }
 
-void runDanceSeq() {
-  
-}
-
 void runGreeting() {
   /* Do one step of greeting sequence of dance moves for the first greetingLen milliseconds, after greetingStart
    */
-  if(setUpServos_bool){
-     setUpServos(); 
-  }
-  
   if (currMilli < greetingLen/5) {
     moveEyes();
   } else if (currMilli < greetingStart + greetingLen*2/5) {
@@ -710,21 +697,6 @@ void runGreeting() {
   } else if (currMilli < greetingStart + greetingLen) {
     swingArms();
   }
-  
-  keepTime();
-}
-
-void keepTime() {
-  // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
-  nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
-  adjustedDelay = int(nextMilli-millis()); // calculate how many more ms to wait before starting next loop
-  if (adjustedDelay < 0) {adjustedDelay = 0;}
-  delay(adjustedDelay);
-
-  currMilli = millis();
-  // calculate how long the last loop actually took and record milli for next loop
-  realStepLength = currMilli - oldMilli;
-  oldMilli = currMilli;
 }
 
 void setup(){
@@ -756,33 +728,42 @@ void setup(){
   
   Serial.begin(115200); 
   Serial.println("began"); 
-
-  range[6] = maxRange[6];
-  minPos[6] = centerPos[6]-range[6]/2;
-  maxPos[6] = centerPos[6]+range[6]/2;
-  curPos[6] = minPos[6];
-  nextPos[6] = minPos[6];
 }
 
 
 void loop(){ 
 //when button is clicked, switch mode
-  current_state2 = digitalRead(buttonPin2); 
- 
-  if (last_state2 == LOW && current_state2 == HIGH){
-    buttonmode2 = buttonmode2%2 + 1; 
-    greetingStart = millis();
-  }
+  // check the current time
+  currMilli = millis();
+  // calculate how long the last loop actually took and record milli for next loop
+  realStepLength = currMilli - oldMilli;
+  oldMilli = currMilli;
+  // Print current time and real step length for debugging
+  // WARNING: printing too many statements per loop can overflow Arduino/COM buffer and cause failure
+//  Serial.print("currMilli="); Serial.println(currMilli);
+//  Serial.print("realStepLength="); Serial.println(realStepLength);
 
-  last_state2 = current_state2; 
+//  runAllServos();
+//  moveEyes();
+//  shakeHead();
+//  nodHead();
+//  bobHead();
+//  swingArms();
 
-  if(buttonmode2 == 1){
-    digitalWrite(LEDPin3, HIGH); 
-  } else if (buttonmode2 == 2) {
-    runGreeting();
-  } else if (buttonmode2 == 3){
-    digitalWrite(LEDPin3, LOW); 
-    runWalle(); 
-  }
+
+
+//  setServoPos(0,95);
+//  setServoPos(1,50);
   
+//  printVals(0); // print values for only one of the servos
+//  printVals(5); // print values for only one of the servos
+//  printVals(6); // print values for only one of the servos
+
+  runGreeting();
+
+
+  // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
+  nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
+  adjustedDelay = int(nextMilli-millis()); // calculate how many more ms to wait before starting next loop
+  delay(adjustedDelay);
 }
