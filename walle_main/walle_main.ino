@@ -11,6 +11,7 @@
  */
 
 #include <arduinoFFT.h>
+#include <Wire.h>
 #include "filters.h";
 #include "SoundData.h";
 #include "XT_DAC_Audio.h";
@@ -162,18 +163,20 @@ void bobHead() {
 
 void swingArms() {
   /* sends servo commands for one step of the swingArms dance move */
-  updatePos(armRPin);
+//  updatePos(armRPin);
   updatePos(armLPin);
 }
+
 
 void moveEyes() {
   /* sends servo commands for one step of the tiltHead dance move */
   updatePos(eyeRPin);
+  
   updatePos(eyeLPin);
 }
 
 void setEyeModeLift() {
-  // set right eye to opposite side of range from left eye so that eyes raise and lower together
+  /* set right eye to opposite side of range from left eye so that eyes raise and lower together */
   dir[eyeRPin] = -1;
   curPos[eyeRPin] = maxPos[eyeRPin];
   nextPos[eyeRPin] = maxPos[eyeRPin];
@@ -183,6 +186,7 @@ void setEyeModeLift() {
 }
 
 void setEyeModeTilt() {
+
   dir[eyeRPin] = 1;
   curPos[eyeRPin] = minPos[eyeRPin];
   nextPos[eyeRPin] = minPos[eyeRPin];
@@ -201,7 +205,8 @@ void runAllServos() {
 }
 
 void updatePos(uint8_t s) {
-  // run this each loop for each servo to move them at the right speed and range
+   Serial.println(s);
+  /* run this each loop for each servo to move them at the right speed and range */
   if (currMult[s] == timeMult[s]) { // check if it's been the right number of baseTime steps to move the servo again
     // if yes, reset the counter and get next position
     currMult[s] = 1;
@@ -346,6 +351,7 @@ void printVals(uint8_t s) {
 }
 
 void moveToBPM(){
+  /* Walle servos to match the bpm */
   if(setUpServos_bool){
       setUpServos(); 
    }
@@ -355,7 +361,7 @@ void moveToBPM(){
   realStepLength = currMilli - oldMilli;
   oldMilli = currMilli;
   
-  runAllServos();
+  //runAllServos();
   
   
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
@@ -366,22 +372,24 @@ void moveToBPM(){
 }
 
 void setUpServos(){
+  /* move servos to starting position */
+  
   digitalWrite(LEDPin1, LOW);
   digitalWrite(LEDPin2, LOW);  
   Serial.println("three pressed");
   setUpServos_bool = false; 
-  for (uint8_t i = 0; i < servosRunning; i++) {
-    // default values to allow non bpm-matching trials
-    range[i] = maxRange[i];
-    minPos[i] = centerPos[i]-range[i]/2;
-    maxPos[i] = centerPos[i]+range[i]/2;
-    curPos[i] = minPos[i];
-    nextPos[i] = minPos[i];
-    
-    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
-    
-    setServo(i); // set servo to one end
-   }
+//  for (uint8_t i = 0; i < servosRunning; i++) {
+//    // default values to allow non bpm-matching trials
+//    range[i] = maxRange[i];
+//    minPos[i] = centerPos[i]-range[i]/2;
+//    maxPos[i] = centerPos[i]+range[i]/2;
+//    curPos[i] = minPos[i];
+//    nextPos[i] = minPos[i];
+//    
+//    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
+//    
+//    setServo(i); // set servo to one end
+//   }
 }
   
 
@@ -389,14 +397,14 @@ void setUpServos(){
 void testServoDriver(){
   for (int pulseLength = SERVOMIN ; pulseLength <= SERVOMAX ; pulseLength++)    //Move each servo from servoMin to servoMax
   {
-    pwm.setPWM(0, 0, pulseLength);  //Set the current PWM pulse length on board 1, servo i
+    pwm.setPWM(6, 0, pulseLength);  //Set the current PWM pulse length on board 1, servo i
     delay(10);
     Serial.println(pulseLength); 
   }
   delay(500);
   for (int pulseLength = SERVOMAX ; pulseLength >= SERVOMIN ; pulseLength--)    ////Move each servo from servoMax to servoMin
   {
-    pwm.setPWM(0, 0, pulseLength);           //Set the current PWM pulse length on board 1, servo i
+    pwm.setPWM(6, 0, pulseLength);           //Set the current PWM pulse length on board 1, servo i
     delay(10);
     Serial.println(pulseLength); 
   }
@@ -405,6 +413,7 @@ void testServoDriver(){
 }
 
 void playAudio(){
+  /* Play walle sound from speaker */
   if(setUpSpeaker_bool){
     setUpSpeaker(); 
   } 
@@ -413,6 +422,8 @@ void playAudio(){
 }
 
 void setUpSpeaker(){
+   /* set up speaker when starting audio output*/
+  
   Serial.println("Playing audio");
   StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
   DacAudio.Play(&StarWars); 
@@ -420,6 +431,7 @@ void setUpSpeaker(){
 }
 
 void moveMotorsToBPM(){
+   /* Move DC motors to BPM*/
 
   if (setUpMotor_bool){
     setUpMotors(); 
@@ -429,10 +441,13 @@ void moveMotorsToBPM(){
       prev_time = millis(); 
       moveMotors(); 
     }
+    
   } 
 }
 
 void setUpMotors(){
+  /*set up DC motors for movement*/
+  
   Serial.println("set up motors"); 
   digitalWrite(LEDPin1, HIGH); 
   digitalWrite(LEDPin2, HIGH); 
@@ -443,6 +458,8 @@ void setUpMotors(){
 }
 
 void moveMotors(){
+  /*move DC motors, swtich directioin they were preiously running*/
+  
   analogWrite(motor1speed, 10);
   analogWrite(motor2speed, 10);
   
@@ -469,6 +486,8 @@ void moveMotors(){
 }
 
 void stopMotors(){
+  /*Stop moving all DC motors */
+  
   digitalWrite(motor1pin1, LOW);
   digitalWrite(motor1pin2, LOW);
 
@@ -477,17 +496,9 @@ void stopMotors(){
   
 }
 
-void testMicrophone(){
-  adc = analogRead(microphonePin); 
-  Serial.println(adc); 
- 
-  if(adc > 450){
-    digitalWrite(LEDPin1, HIGH);
-    delay(1000);
-    digitalWrite(LEDPin1, LOW);
-  }  
-}
 void blinkToBPM(){
+  /*Blink LEDs to BPM */
+  
   if (setUpLED_bool){
     Serial.println("set up leds"); 
     setUpLED_bool = false; 
@@ -502,6 +513,7 @@ void blinkToBPM(){
 }
 
 void blinkLED(){
+  /*Blink LED*/
   
   if(LED1Mode == HIGH){
     digitalWrite(LEDPin1, LOW); 
@@ -656,6 +668,7 @@ void runWalle(){
   }
 }
 
+
 void setup(){
   //set up servo driver communication
   pwm.begin();
@@ -685,20 +698,24 @@ void setup(){
   
   Serial.begin(115200); 
   Serial.println("began"); 
+
+  range[6] = maxRange[6];
+  minPos[6] = centerPos[6]-range[6]/2;
+  maxPos[6] = centerPos[6]+range[6]/2;
+  curPos[6] = minPos[6];
+  nextPos[6] = minPos[6];
 }
 
 
 void loop(){ 
 //when button is clicked, switch mode
   current_state2 = digitalRead(buttonPin2); 
-
-  
+ 
   if (last_state2 == LOW && current_state2 == HIGH){
     buttonmode2 = buttonmode2%2 + 1; 
   }
 
   last_state2 = current_state2; 
-  listenForBPM(); 
 
   if(buttonmode2 == 1){
     digitalWrite(LEDPin3, HIGH); 
