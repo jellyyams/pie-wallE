@@ -10,10 +10,10 @@
  * Tested out frequency parameters, 128 samples, 2000 hz, and cut off at 20 hz seems to work best. first order filter 
  */
 
-#include <arduinoFFT.h>
-#include "filters.h";
-#include "SoundData.h";
-#include "XT_DAC_Audio.h";
+//#include <arduinoFFT.h>
+//#include "filters.h";
+//#include "SoundData.h";
+//#include "XT_DAC_Audio.h";
 #include <Adafruit_PWMServoDriver.h>
 
 int buttonmode1 = 0; 
@@ -45,6 +45,9 @@ const bool dispServoInfo = false;
 const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
 const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
+
+const int greetingLen = 10000; // time to spend on greeting sequence (ms)
+unsigned long greetingStart = 0;
 
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
 double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
@@ -80,7 +83,7 @@ unsigned long adjustedDelay = baseTime - currMilli; // time to wait at the end o
 
 #define SAMPLES 128
 int SAMPLING_FREQUENCY = 2000; //Hz, must be less than 10000 due to ADC
-arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
+//arduinoFFT FFT = arduinoFFT(); /* Create FFT object */
 double adc; 
 uint8_t sampling_period_us;
 unsigned long microseconds;
@@ -94,8 +97,8 @@ unsigned long curr_time;
 
 const float cutoff_freq  = 20;  //Cutoff frequency in Hz
 const float sampling_time = 0.002; //Sampling time in seconds.
-IIR::ORDER  order  = IIR::ORDER::OD1; // Order (OD1 to OD4)
-Filter f(cutoff_freq, sampling_time, order);
+//IIR::ORDER  order  = IIR::ORDER::OD1; // Order (OD1 to OD4)
+//Filter f(cutoff_freq, sampling_time, order);
 
 
 //Finding most common time between beats
@@ -138,9 +141,21 @@ const uint8_t armRPin =  6;
 
 //Playing audio
 
-XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
-XT_Wav_Class StarWars(Force); 
+//XT_DAC_Audio_Class DacAudio(speakerPin,0);    // Create the main player class object. Use GPIO 25, one of the 2 DAC pins and timer 0                                     
+//XT_Wav_Class StarWars(Force); 
 
+
+void swingArms() {
+  /* Send servo commands for one step of the swingArms dance move */
+  updatePos(armRPin);
+  updatePos(armLPin);
+}
+
+void bobHead() {
+  /* Send servo commands for one step of the bobHead dance move */
+  updatePos(neckTPin);
+  updatePos(neckBPin);
+}
 
 void nodHead() {
   /* Send servo commands for one step of the nodHead dance move */
@@ -150,18 +165,6 @@ void nodHead() {
 void shakeHead() {
   /* Sends servo commands for one step of the shakeHead dance move */
   updatePos(headPin);
-}
-
-void bobHead() {
-  /* Send servo commands for one step of the bobHead dance move */
-  updatePos(neckTPin);
-  updatePos(neckBPin);
-}
-
-void swingArms() {
-  /* Send servo commands for one step of the swingArms dance move */
-  updatePos(armRPin);
-  updatePos(armLPin);
 }
 
 void moveEyes() {
@@ -402,7 +405,7 @@ void setUpServos(){
     curPos[i] = minPos[i];
     nextPos[i] = minPos[i];
     
-    if (useBPM) {matchBPM(i,goalBPM[i]);} // comment out to allow non bpm-matching trials
+    if (useBPM) {matchBPM(i,goalBPM[i]);}
     
     setServo(i); // set servo to one end
    }
@@ -428,20 +431,20 @@ void testServoDriver(){
   
 }
 
-void playAudio(){
-  if(setUpSpeaker_bool){
-    setUpSpeaker(); 
-  } 
-  
-  DacAudio.FillBuffer();  
-}
-
-void setUpSpeaker(){
-  Serial.println("Playing audio");
-  StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
-  DacAudio.Play(&StarWars); 
-  setUpSpeaker_bool = false; 
-}
+//void playAudio(){
+//  if(setUpSpeaker_bool){
+//    setUpSpeaker(); 
+//  } 
+//  
+//  DacAudio.FillBuffer();  
+//}
+//
+//void setUpSpeaker(){
+//  Serial.println("Playing audio");
+//  StarWars.RepeatForever=false;        // Keep on playing sample forever!!!
+//  DacAudio.Play(&StarWars); 
+//  setUpSpeaker_bool = false; 
+//}
 
 void moveMotorsToBPM(){
 
@@ -467,7 +470,7 @@ void setUpMotors(){
 }
 
 void moveMotors(){
-  analogWrite(motor1speed, 10);
+//  analogWrite(motor1speed, 10);
   analogWrite(motor2speed, 10);
   
 
@@ -544,18 +547,18 @@ double runFFT(){
   averageFrequencySamples(sum); 
 
   // windows the data and computes the FFT
-  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
-  double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
-  return peak;
+//  FFT.Windowing(vReal, SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+//  FFT.Compute(vReal, vImag, SAMPLES, FFT_FORWARD);
+//  FFT.ComplexToMagnitude(vReal, vImag, SAMPLES);
+//  double peak = FFT.MajorPeak(vReal, SAMPLES, SAMPLING_FREQUENCY);
+//  return peak;
 }
 
 double getFrequencySamples(){
   double sum = 0;
   for (int i = 0; i < SAMPLES; i++) {
     unsigned long newTime= micros();  
-    adc=f.filterIn(analogRead(microphonePin));
+//    adc=f.filterIn(analogRead(microphonePin));
     vReal[i] = (double)adc; 
     sum += adc;
     vImag[i] = 0;
@@ -680,6 +683,22 @@ void runWalle(){
   }
 }
 
+void runGreeting() {
+  /* Do one step of greeting sequence of dance moves for the first greetingLen milliseconds, after greetingStart
+   */
+  if (currMilli < greetingLen/5) {
+    moveEyes();
+  } else if (currMilli < greetingStart + greetingLen*2/5) {
+    shakeHead();
+  } else if (currMilli < greetingStart + greetingLen*3/5) {
+    nodHead();
+  } else if (currMilli < greetingStart + greetingLen*4/5) {
+    bobHead();
+  } else if (currMilli < greetingStart + greetingLen) {
+    swingArms();
+  }
+}
+
 void setup(){
   //set up servo driver communication
   pwm.begin();
@@ -714,21 +733,37 @@ void setup(){
 
 void loop(){ 
 //when button is clicked, switch mode
-  current_state2 = digitalRead(buttonPin2); 
+  // check the current time
+  currMilli = millis();
+  // calculate how long the last loop actually took and record milli for next loop
+  realStepLength = currMilli - oldMilli;
+  oldMilli = currMilli;
+  // Print current time and real step length for debugging
+  // WARNING: printing too many statements per loop can overflow Arduino/COM buffer and cause failure
+//  Serial.print("currMilli="); Serial.println(currMilli);
+//  Serial.print("realStepLength="); Serial.println(realStepLength);
 
+//  runAllServos();
+//  moveEyes();
+//  shakeHead();
+//  nodHead();
+//  bobHead();
+//  swingArms();
+
+
+
+//  setServoPos(0,95);
+//  setServoPos(1,50);
   
-  if (last_state2 == LOW && current_state2 == HIGH){
-    buttonmode2 = buttonmode2%2 + 1; 
-  }
+//  printVals(0); // print values for only one of the servos
+//  printVals(5); // print values for only one of the servos
+//  printVals(6); // print values for only one of the servos
 
-  last_state2 = current_state2; 
-  listenForBPM(); 
+  runGreeting();
 
-  if(buttonmode2 == 1){
-    digitalWrite(LEDPin3, HIGH); 
-  } else if (buttonmode2 == 2){
-    digitalWrite(LEDPin3, LOW); 
-    runWalle(); 
-  }
-  
+
+  // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
+  nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
+  adjustedDelay = int(nextMilli-millis()); // calculate how many more ms to wait before starting next loop
+  delay(adjustedDelay);
 }

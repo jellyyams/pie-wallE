@@ -1,4 +1,3 @@
-
 /*
  * Note to self, Nov 30:
  * mpv is to play metronome for wallE for 10 seconds. 
@@ -8,6 +7,9 @@
  * 
  * Dec3: 
  * Tested out frequency parameters, 128 samples, 2000 hz, and cut off at 20 hz seems to work best. first order filter 
+ * 
+ * 
+ * analogWrite statements may be commented out!!!!!
  */
 
 #include <arduinoFFT.h>
@@ -45,6 +47,7 @@ const bool dispServoInfo = false;
 const bool adjBPM = false; // whether to run matchBPM with a corrected value (aka the adjustBPM() function) every time realBPM is calculated
 const int servosRunning = 7; // only try to run and find movement parameters for servos that have goalBPM, centerPos, maxRange, and maxVel defined
 const bool useBPM = false; // whether to use BPM to calculate range, stepDist, and timeMult
+const int greetingLen = 10000; // time to spend on greeting sequence (ms)
 
 double goalBPM[7] =     {allBPM/2,  allBPM/2,   allBPM,   allBPM,   allBPM,   allBPM,   allBPM};
 double centerPos[7] =   {95,        95,         107,      95,       105,       95,       95}; // (deg)
@@ -75,6 +78,7 @@ unsigned long currMilli = 0; // (ms timestamp)
 unsigned long nextMilli = baseTime; // (ms timestamp)       
 unsigned long realStepLength = baseTime; // real time between the oldMilli and currMilli to check if adjustedDelay is working (ms)
 unsigned long adjustedDelay = baseTime - currMilli; // time to wait at the end of each loop in order to make timesteps the right length (ms)
+unsigned long greetingStart = 0;
 
 // Freqeuncy analysis setup
 
@@ -365,7 +369,7 @@ void printVals(uint8_t s) {
 //  Serial.print("s"); Serial.print(s); Serial.print(" range="); Serial.println(range[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" minPos="); Serial.println(minPos[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" maxPos="); Serial.println(maxPos[s]);
-  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
+//  Serial.print("s"); Serial.print(s); Serial.print(" realBPM="); Serial.println(realBPM[s]);
 //  Serial.print("s"); Serial.print(s); Serial.print(" realVel="); Serial.println(realVel[s]);
 }
 
@@ -467,8 +471,8 @@ void setUpMotors(){
 }
 
 void moveMotors(){
-  analogWrite(motor1speed, 10);
-  analogWrite(motor2speed, 10);
+//  analogWrite(motor1speed, 10);
+//  analogWrite(motor2speed, 10);
   
 
   if (motor_mode == HIGH){
@@ -680,6 +684,36 @@ void runWalle(){
   }
 }
 
+void runGreeting() {
+  /* Do one step of greeting sequence of dance moves for the first greetingLen milliseconds, after greetingStart
+   */
+  if(setUpServos_bool){
+     setUpServos(); 
+  }
+    
+  currMilli = millis();
+  // calculate how long the last loop actually took and record milli for next loop
+  realStepLength = currMilli - oldMilli;
+  oldMilli = currMilli;
+  
+  if (currMilli < greetingLen/5) {
+    moveEyes();
+  } else if (currMilli < greetingStart + greetingLen*2/5) {
+    shakeHead();
+  } else if (currMilli < greetingStart + greetingLen*3/5) {
+    nodHead();
+  } else if (currMilli < greetingStart + greetingLen*4/5) {
+    bobHead();
+  } else if (currMilli < greetingStart + greetingLen) {
+    swingArms();
+  }
+  
+  // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
+  nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
+  adjustedDelay = int(nextMilli-millis()); // calculate how many more ms to wait before starting next loop
+  delay(adjustedDelay);
+}
+
 void setup(){
   //set up servo driver communication
   pwm.begin();
@@ -719,6 +753,7 @@ void loop(){
   
   if (last_state2 == LOW && current_state2 == HIGH){
     buttonmode2 = buttonmode2%2 + 1; 
+    greetingStart = millis();
   }
 
   last_state2 = current_state2; 
@@ -726,7 +761,9 @@ void loop(){
 
   if(buttonmode2 == 1){
     digitalWrite(LEDPin3, HIGH); 
-  } else if (buttonmode2 == 2){
+  } else if (buttonmode2 == 2) {
+    runGreeting();
+  } else if (buttonmode2 == 3){
     digitalWrite(LEDPin3, LOW); 
     runWalle(); 
   }
