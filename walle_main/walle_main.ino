@@ -71,6 +71,7 @@ unsigned long lastSwitch[7]; // timestamp of last change of direction (ms)
 double realBPM[7] = {allBPM,allBPM,allBPM,allBPM,allBPM,allBPM,allBPM}; // calculated from time of last direction change
 double realVel[7]; // calculated from time of last direction change and range travelled (deg/s)
 int currMult[7] = {1,1,1,1,1,1,1}; // counter to only update servo position after timeMult baseTime intervals
+int danceNum = 0;
 
 
 unsigned long oldMilli = 0; // (ms timestamp)
@@ -258,13 +259,6 @@ void calcNextPos(uint8_t s) {
     realBPM[s] = (1/double(currMilli-lastSwitch[s]))*1000*60; // calculate the actual time it took to complete the whole range
     realVel[s] = (1/double(currMilli-lastSwitch[s]))*1000*range[s]; // calculate the actual angular speed (deg/s)
     lastSwitch[s] = currMilli;
-  }
-}
-
-void adjustBPM(uint8_t s, double reduction){
-  /* runs the matchBPM function again with a slightly higher bpm if realBPM is too slow */
-  if (realBPM[s] < goalBPM[s]) {
-    matchBPM(s, goalBPM[s]+(goalBPM[s]-realBPM[s])/reduction);
   }
 }
 
@@ -684,17 +678,16 @@ void runWalle(){
   }
 }
 
+void runDanceSeq() {
+  
+}
+
 void runGreeting() {
   /* Do one step of greeting sequence of dance moves for the first greetingLen milliseconds, after greetingStart
    */
   if(setUpServos_bool){
      setUpServos(); 
   }
-    
-  currMilli = millis();
-  // calculate how long the last loop actually took and record milli for next loop
-  realStepLength = currMilli - oldMilli;
-  oldMilli = currMilli;
   
   if (currMilli < greetingLen/5) {
     moveEyes();
@@ -708,10 +701,20 @@ void runGreeting() {
     swingArms();
   }
   
+  keepTime();
+}
+
+void keepTime() {
   // dynamically adjust length of delay based on how much time has already been spent in this loop and when the next one should start
   nextMilli = currMilli + baseTime; // determine next step based on "current time" recorded at beginning of loop
   adjustedDelay = int(nextMilli-millis()); // calculate how many more ms to wait before starting next loop
+  if (adjustedDelay < 0) {adjustedDelay = 0;}
   delay(adjustedDelay);
+
+  currMilli = millis();
+  // calculate how long the last loop actually took and record milli for next loop
+  realStepLength = currMilli - oldMilli;
+  oldMilli = currMilli;
 }
 
 void setup(){
