@@ -1,4 +1,4 @@
-# Dancing Walle
+# Dancing Wall-E
 
 ## Overview 
 
